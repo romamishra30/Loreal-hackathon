@@ -1,0 +1,19 @@
+{
+  "name": "RefillRx - Operating Platform for Dispensing Dermatologists",
+  "short_name": "RefillRx",
+  "description": "Refill-Program Operating Platform for Dispensing Dermatologists - L'Oréal Sustainability Challenge 2026",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7fbf8",
+  "theme_color": "#14532d",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
+
