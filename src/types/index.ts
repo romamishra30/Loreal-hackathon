@@ -24,29 +24,31 @@ export interface Territory {
 export interface Clinic {
   id: string
   name: string
-  doctorName: string
-  doctorDegree: string
-  phone: string
-  email: string
+  doctorId?: string
+  doctorName?: string
+  doctorDegree?: string
+  phone?: string
+  email?: string
   address: string
   locality: string
   territoryId: string
   lat: number
   lng: number
-  archetype: DoctorArchetype
-  patientVolumeMonthly: number
-  dispensingSharePct: number // e.g. 60%
-  brandsStocked: string[]
-  enrolledDate: string
-  healthScore: number // 0-100
-  healthStatus: HealthStatus
-  activeLevers: string[]
-  binCount: number
-  binThreshold: number
-  lastVisitDate: string
-  lastRefillDate: string
-  totalRefillsAllTime: number
-  totalPacksSavedAllTime: number
+  archetype?: DoctorArchetype
+  patientVolumeMonthly?: number
+  dispensingSharePct?: number
+  brandsStocked?: string[]
+  enrolledDate?: string
+  enrolledAt?: string
+  healthScore?: number
+  healthStatus?: HealthStatus
+  activeLevers?: string[]
+  binCount?: number
+  binThreshold?: number
+  lastVisitDate?: string
+  lastRefillDate?: string
+  totalRefillsAllTime?: number
+  totalPacksSavedAllTime?: number
   counterPin: string
 }
 
@@ -90,12 +92,14 @@ export interface ReturnPack {
   batchCode: string
   skuId: string
   scannedAt: string
+  patientId?: string
   verifiedChecks: {
     intact: boolean
     matchesRange: boolean
-    batchCodeReadable: boolean
+    batchCodeReadable?: boolean
+    batchLegible?: boolean
   }
-  duplicateFlag: boolean
+  duplicateFlag?: boolean
 }
 
 export interface StockItem {
@@ -210,9 +214,9 @@ export type TaskPriority = 'urgent' | 'high' | 'medium'
 export interface ActionTask {
   id: string
   clinicId: string
-  clinicName: string
-  doctorName: string
-  locality: string
+  clinicName?: string
+  doctorName?: string
+  locality?: string
   priority: TaskPriority
   title: string
   description: string
@@ -227,8 +231,8 @@ export interface Visit {
   id: string
   repId: string
   clinicId: string
-  clinicName: string
-  doctorName: string
+  clinicName?: string
+  doctorName?: string
   date: string
   timeSlot: string
   type: 'routine' | 'urgent' | 'training' | 'onboarding'

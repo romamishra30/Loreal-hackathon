@@ -20,6 +20,7 @@ import {
 import { useAppStore } from '../../store/useAppStore'
 import { PRODUCT_SKUS } from '../../data/seedConstants'
 import { formatINR } from '../../lib/utils'
+import { t } from '../../i18n'
 
 export const PatientView: React.FC = () => {
   const { 
@@ -45,9 +46,10 @@ export const PatientView: React.FC = () => {
   ])
   const [newReply, setNewReply] = useState('')
 
-  const daysRemaining = Math.max(0, sku.usageCycleDays - patient.usageDaysElapsed)
-  const percentElapsed = Math.min(100, Math.round((patient.usageDaysElapsed / sku.usageCycleDays) * 100))
-  const gramsPlasticSaved = patient.packsSavedTotal * sku.plasticWeightGrams
+  const usageElapsed = patient.usageDaysElapsed ?? 24
+  const daysRemaining = Math.max(0, sku.usageCycleDays - usageElapsed)
+  const percentElapsed = Math.min(100, Math.round((usageElapsed / sku.usageCycleDays) * 100))
+  const gramsPlasticSaved = (patient.packsSavedTotal ?? 3) * sku.plasticWeightGrams
 
   const toggleTag = (tag: string) => {
     setSelectedTags(prev => 
@@ -79,7 +81,7 @@ export const PatientView: React.FC = () => {
             </span>
             <div>
               <p className="font-semibold text-sm">{patient.name}</p>
-              <p className="text-[10px] text-emerald-300">Prescribed by {clinic.doctorName}</p>
+              <p className="text-[10px] text-emerald-300">{t('patient.prescribedBy')} {clinic.doctorName}</p>
             </div>
           </div>
 
@@ -101,21 +103,21 @@ export const PatientView: React.FC = () => {
             {patient.qrCodeValue}
           </p>
           <p className="text-[10px] text-emerald-700 font-semibold mt-0.5">
-            Show this QR code at clinic reception for 20% refill discount
+            {t('patient.showQrNotice')}
           </p>
         </div>
 
         {/* Personal Ecological Impact */}
         <div className="grid grid-cols-2 gap-2 text-center pt-2 border-t border-brand-700/60 text-xs">
           <div>
-            <p className="text-brand-200 text-[10px] uppercase">Refill Streak</p>
+            <p className="text-brand-200 text-[10px] uppercase">{t('patient.refillStreak')}</p>
             <p className="font-bold text-lg text-emerald-300 flex items-center justify-center gap-1">
               <Flame className="w-4 h-4 text-amber-400 fill-amber-400" />
-              {patient.refillStreak} Bottles
+              {patient.refillStreak} {t('patient.bottlesSaved')}
             </p>
           </div>
           <div>
-            <p className="text-brand-200 text-[10px] uppercase">Plastic Saved</p>
+            <p className="text-brand-200 text-[10px] uppercase">{t('patient.plasticDiverted')}</p>
             <p className="font-bold text-lg text-emerald-300">
               {gramsPlasticSaved}g
             </p>
@@ -128,12 +130,12 @@ export const PatientView: React.FC = () => {
         <div className="flex items-center justify-between">
           <div>
             <h3 className="font-serif font-bold text-base text-charcoal-900 dark:text-white">
-              Daily Regimen Status
+              {t('patient.dailyRegimenStatus')}
             </h3>
             <p className="text-xs text-gray-500">{sku.name}</p>
           </div>
           <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
-            {daysRemaining} Days Left
+            {daysRemaining} {t('patient.daysLeft')}
           </span>
         </div>
 
@@ -157,7 +159,7 @@ export const PatientView: React.FC = () => {
           <div className="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-2xl border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs flex items-start gap-2.5">
             <Clock className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
             <div>
-              <strong>Refill Due Soon!</strong> Bring your empty container to {clinic.name} to save ₹270 on your fresh sealed pod.
+              <strong>Refill Due Soon!</strong> Bring your empty container to {clinic.name} to save {formatINR(sku.fullPriceINR - sku.refillPriceINR)} on your fresh sealed pod.
             </div>
           </div>
         ) : (
@@ -174,7 +176,7 @@ export const PatientView: React.FC = () => {
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
             <h3 className="font-semibold text-xs text-charcoal-900 dark:text-white flex items-center gap-1.5">
               <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-              WhatsApp Reminder Simulator (Day 25 Alert)
+              {t('patient.whatsappSimulatorTitle')}
             </h3>
           </div>
           <span className="text-[10px] text-gray-400">Automated Bot</span>
@@ -228,14 +230,14 @@ export const PatientView: React.FC = () => {
       {/* Patient Experience Feedback (Flows to NPS) */}
       <div className="rounded-3xl p-5 bg-white dark:bg-charcoal-900 border border-gray-200 dark:border-charcoal-800 shadow-sm space-y-4">
         <h3 className="font-serif font-bold text-base text-charcoal-900 dark:text-white">
-          Rate Your Refill Experience
+          {t('patient.rateExperienceTitle')}
         </h3>
 
         {feedbackSubmitted ? (
           <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-xs text-center space-y-1">
             <CheckCircle2 className="w-6 h-6 mx-auto text-emerald-600" />
-            <p className="font-bold">Thank you for your review!</p>
-            <p className="text-emerald-700">Your feedback updates the clinic's NPS rating in real-time.</p>
+            <p className="font-bold">{t('patient.thankYouReview')}</p>
+            <p className="text-emerald-700">{t('patient.npsUpdatedMsg')}</p>
           </div>
         ) : (
           <form onSubmit={handleSubmitFeedback} className="space-y-3">
@@ -295,7 +297,7 @@ export const PatientView: React.FC = () => {
               type="submit"
               className="w-full py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs transition-colors"
             >
-              Submit Feedback (Updates Clinic NPS)
+              {t('patient.submitFeedbackBtn')}
             </button>
           </form>
         )}

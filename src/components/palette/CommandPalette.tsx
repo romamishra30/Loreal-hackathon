@@ -40,7 +40,7 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
   const filteredClinics = query
     ? clinics.filter(c => 
         c.name.toLowerCase().includes(query.toLowerCase()) || 
-        c.doctorName.toLowerCase().includes(query.toLowerCase()) ||
+        (c.doctorName && c.doctorName.toLowerCase().includes(query.toLowerCase())) ||
         c.locality.toLowerCase().includes(query.toLowerCase())
       ).slice(0, 5)
     : clinics.slice(0, 4)
@@ -130,7 +130,7 @@ export const CommandPalette: React.FC<{ isOpen: boolean; onClose: () => void }> 
                     <p className="text-[11px] text-gray-500">{clinic.doctorName} • {clinic.locality}</p>
                   </div>
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-semibold">
-                    Score {clinic.healthScore}
+                    Score {clinic.healthScore ?? 85}
                   </span>
                 </button>
               ))}

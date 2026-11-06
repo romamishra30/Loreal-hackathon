@@ -412,7 +412,7 @@ export function generateSeedData(seed: number = 20260315) {
         dueDate: formatISO(subDays(now, -1)),
         createdAt: formatISO(subDays(now, 2)),
       })
-    } else if (clinic.binCount >= clinic.binThreshold) {
+    } else if ((clinic.binCount || 0) >= (clinic.binThreshold || 20)) {
       taskCounter++
       actionTasks.push({
         id: `task-${taskCounter}`,

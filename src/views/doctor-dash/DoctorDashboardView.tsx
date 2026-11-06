@@ -16,19 +16,33 @@ import {
   ArrowUpRight
 } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
+import { useUiStore } from '../../store/useUiStore'
 import { formatINR, formatNumber } from '../../lib/utils'
 import { StatCard } from '../../components/common/StatCard'
 import { Badge } from '../../components/common/Badge'
+import { 
+  selectClinicRank, 
+  selectClinicCumulativeMargin, 
+  selectClinicIncentiveTier, 
+  selectClinicBinCount, 
+  selectClinicPlasticKg 
+} from '../../domain/selectors/clinicSelectors'
 
 export const DoctorDashboardView: React.FC = () => {
-  const { selectedClinicId, clinics, staffMembers, transactions } = useAppStore()
+  const { selectedClinicId, clinics, staffMembers, transactions, config, returnPacks, pickupTasks, skus } = useAppStore()
   const clinic = clinics.find(c => c.id === selectedClinicId) || clinics[0]
   const staff = staffMembers.filter(s => s.clinicId === clinic.id)
   const clinicTxs = transactions.filter(t => t.clinicId === clinic.id && t.status === 'completed')
 
-  const totalMarginEarned = clinicTxs.reduce((sum, t) => sum + t.doctorMargin, 0)
-  const totalPacksSaved = clinic.totalPacksSavedAllTime
-  const kgPlasticSaved = ((totalPacksSaved * 42) / 1000).toFixed(1)
+  const totalMarginEarned = selectClinicCumulativeMargin(transactions, clinic.id)
+  const computedBin = selectClinicBinCount(returnPacks || [], pickupTasks || [], clinic.id)
+  const binCount = typeof computedBin === 'number' ? computedBin : (clinic.binCount ?? 0)
+  const kgPlastic = selectClinicPlasticKg(transactions, skus, clinic.id)
+  const kgPlasticSaved = (kgPlastic > 0 ? kgPlastic : ((clinic.totalPacksSavedAllTime || clinicTxs.length) * 0.042)).toFixed(1)
+  const totalPacksSaved = clinic.totalPacksSavedAllTime || clinicTxs.length
+
+  const { rank, total } = selectClinicRank(clinic.id, clinics, transactions)
+  const incentive = selectClinicIncentiveTier(clinic.id, transactions, config)
 
   const [cardCopied, setCardCopied] = useState(false)
 
@@ -54,7 +68,7 @@ export const DoctorDashboardView: React.FC = () => {
             {clinic.doctorName}'s Practice Portal
           </h1>
           <p className="text-xs text-charcoal-600 dark:text-gray-400">
-            {clinic.name} • {clinic.locality} • Rank: <strong>#4 of 25</strong> in Mumbai–Thane Cohort
+            {clinic.name} • {clinic.locality} • Rank: <strong>#{rank} of {total}</strong> in Mumbai–Thane Cohort
           </p>
         </div>
 
@@ -70,27 +84,35 @@ export const DoctorDashboardView: React.FC = () => {
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <StatCard
+          kpiId="doctor_margin"
           title="Refill Practice Margin"
           value={formatINR(totalMarginEarned || 34200)}
           subtext="Earned on repeat refills"
           trend={{ value: '+24%', isPositive: true }}
           highlight={true}
+          onInfoClick={() => useUiStore.getState().openPopover('why_this_number')}
         />
         <StatCard
+          kpiId="repeat_adherence"
           title="Repeat Adherence"
           value="64.2%"
           subtext="Baseline was 28%"
           trend={{ value: '2.3x', isPositive: true }}
+          onInfoClick={() => useUiStore.getState().openPopover('why_this_number')}
         />
         <StatCard
+          kpiId="plastic_saved"
           title="Plastic Saved"
           value={`${kgPlasticSaved} kg`}
           subtext={`${totalPacksSaved} containers diverted`}
+          onInfoClick={() => useUiStore.getState().openPopover('why_this_number')}
         />
         <StatCard
+          kpiId="bin_level"
           title="Returns Bin Level"
-          value={`${clinic.binCount} / 20`}
-          subtext="Courier pickup at 20"
+          value={`${binCount} / ${clinic.binThreshold || 20}`}
+          subtext={`Courier pickup at ${clinic.binThreshold || 20}`}
+          onInfoClick={() => useUiStore.getState().openPopover('why_this_number')}
         />
       </div>
 
@@ -145,7 +167,7 @@ export const DoctorDashboardView: React.FC = () => {
                 Clinic Staff Engagement & Leaderboard
               </h3>
               <p className="text-xs text-charcoal-600 dark:text-gray-400">
-                Staff earn ₹10 / 10 points per refill processed with correct verification.
+                Staff earn {formatINR(config.staffIncentivePerRefillINR || 10)} / 10 points per refill processed with correct verification.
               </p>
             </div>
             <Award className="w-5 h-5 text-gold-500" />
@@ -163,7 +185,7 @@ export const DoctorDashboardView: React.FC = () => {
                   </span>
                   <div>
                     <p className="font-bold text-charcoal-900 dark:text-white">{s.name}</p>
-                    <p className="text-gray-400 text-[10px]">{s.role} • {s.completedModules.length}/6 Training Modules</p>
+                    <p className="text-gray-400 text-[10px]">{s.role} • {s.completedModules?.length || 0}/6 Training Modules</p>
                   </div>
                 </div>
 
@@ -181,10 +203,14 @@ export const DoctorDashboardView: React.FC = () => {
           <div className="p-4 rounded-2xl bg-gold-50/70 dark:bg-charcoal-800 border border-gold-200 dark:border-gold-800/60 text-xs space-y-1.5">
             <div className="flex items-center gap-1.5 font-bold text-gold-900 dark:text-gold-300">
               <Gift className="w-4 h-4 text-gold-600" />
-              <span>Current Clinic Reward Tier: GOLD</span>
+              <span>Current Clinic Reward Tier: {incentive.tier.toUpperCase()}</span>
             </div>
             <p className="text-gray-600 dark:text-gray-300 text-[11px] leading-relaxed">
-              Achieved 60+ monthly refills and 4 weeks consistency. Practice bonus: ₹3,000 monthly credit + staff shopping vouchers.
+              {incentive.tier === 'gold'
+                ? `Achieved 60+ monthly refills. Practice bonus: ${formatINR(incentive.bonusINR)} monthly credit + ${formatINR(incentive.rewardPerRefill)}/refill staff bonus.`
+                : incentive.tier === 'silver'
+                ? `Achieved 40+ monthly refills. Practice bonus: ${formatINR(incentive.bonusINR)} monthly credit + ${formatINR(incentive.rewardPerRefill)}/refill staff bonus.`
+                : `Achieved ${clinicTxs.length} refills. Practice bonus: ${formatINR(incentive.bonusINR || 500)} monthly credit.`}
             </p>
           </div>
         </div>

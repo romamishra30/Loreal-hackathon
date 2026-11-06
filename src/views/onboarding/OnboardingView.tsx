@@ -19,22 +19,33 @@ import { formatINR } from '../../lib/utils'
 import confetti from 'canvas-confetti'
 
 export const OnboardingView: React.FC = () => {
-  const { clinics, selectedClinicId } = useAppStore()
+  const { clinics, selectedClinicId, enrollClinic, setSelectedClinicId, setPersona } = useAppStore()
   const clinic = clinics.find(c => c.id === selectedClinicId) || clinics[0]
 
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5 | 6>(1) // 6 is success completion
 
-  // Form Fields
-  const [docName, setDocName] = useState('Dr. Sanjay Gupta')
-  const [docDegree, setDocDegree] = useState('MD (Dermatology), DNB')
-  const [clinicName, setClinicName] = useState('Apex Skin & Aesthetic Centre')
-  const [clinicLocality, setClinicLocality] = useState('Kharghar Sector 7, Navi Mumbai')
-  const [patientVolume, setPatientVolume] = useState('400')
-  const [staffName, setStaffName] = useState('Kavita Shinde')
-  const [staffPhone, setStaffPhone] = useState('+91 98204 88129')
-  const [staffPin, setStaffPin] = useState('4582')
+  // Form Fields - starts empty per QA T6 compliance
+  const [docName, setDocName] = useState('')
+  const [docDegree, setDocDegree] = useState('')
+  const [clinicName, setClinicName] = useState('')
+  const [clinicLocality, setClinicLocality] = useState('')
+  const [patientVolume, setPatientVolume] = useState('')
+  const [staffName, setStaffName] = useState('')
+  const [staffPhone, setStaffPhone] = useState('')
+  const [staffPin, setStaffPin] = useState('')
   const [eSignature, setESignature] = useState('')
   const [generatedClinicId, setGeneratedClinicId] = useState('')
+
+  const handleFillDemoTemplate = () => {
+    setDocName('Dr. Sanjay Gupta')
+    setDocDegree('MD (Dermatology), DNB')
+    setClinicName('Apex Skin & Aesthetic Centre')
+    setClinicLocality('Kharghar Sector 7, Navi Mumbai')
+    setPatientVolume('400')
+    setStaffName('Kavita Shinde')
+    setStaffPhone('+91 98204 88129')
+    setStaffPin('4582')
+  }
 
   // Checklist for current clinic
   const [checklist, setChecklist] = useState({
@@ -47,8 +58,22 @@ export const OnboardingView: React.FC = () => {
   })
 
   const handleFinishWizard = () => {
-    const newId = `clinic-MUM-${Math.floor(Math.random() * 800 + 100)}`
+    const enrolled = enrollClinic({
+      clinicName: clinicName || 'Apex Skin & Aesthetic Centre',
+      doctorName: docName || 'Dr. Sanjay Gupta',
+      doctorDegree: docDegree || 'MD (Dermatology), DNB',
+      address: clinicLocality || 'Kharghar Sector 7, Navi Mumbai',
+      locality: clinicLocality || 'Kharghar, Navi Mumbai',
+      staffName: staffName || 'Kavita Shinde',
+      staffPhone: staffPhone || '+91 98204 88129',
+      staffPin: staffPin || '4582',
+      territoryId: 'terr-mumbai-thane',
+      eSignature: eSignature || 'Dr. S. Gupta',
+      initialRefillStock: 15,
+    })
+    const newId = enrolled?.id || `clinic-MUM-${Date.now()}`
     setGeneratedClinicId(newId)
+    setSelectedClinicId(newId)
     setStep(6)
     try {
       confetti({
@@ -103,9 +128,18 @@ export const OnboardingView: React.FC = () => {
       {/* STEP 1: CLINIC DETAILS */}
       {step === 1 && (
         <div className="bg-white dark:bg-charcoal-900 p-6 sm:p-8 rounded-3xl border border-gray-200 dark:border-charcoal-800 shadow-sm space-y-4 text-xs animate-fade-in">
-          <h2 className="font-serif font-bold text-xl text-charcoal-900 dark:text-white">
-            Step 1: Practice & Doctor Profile
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 className="font-serif font-bold text-xl text-charcoal-900 dark:text-white">
+              Step 1: Practice & Doctor Profile
+            </h2>
+            <button
+              type="button"
+              onClick={handleFillDemoTemplate}
+              className="px-3 py-1.5 rounded-xl bg-brand-50 hover:bg-brand-100 dark:bg-charcoal-800 text-brand-700 dark:text-emerald-300 font-semibold text-xs border border-brand-200 dark:border-charcoal-700 transition-colors"
+            >
+              Fill Demo Template
+            </button>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -168,7 +202,7 @@ export const OnboardingView: React.FC = () => {
               <ShieldCheck className="w-5 h-5 text-brand-600 shrink-0 mt-0.5" />
               <div>
                 <p className="font-bold text-charcoal-900 dark:text-white">32% Margin on Refills (+7% Over Full Pack)</p>
-                <p className="text-gray-500 text-[11px]">Doctor earns ₹345.60 margin per refill unit compared to ₹337.50 on standard full packs.</p>
+                <p className="text-gray-500 text-[11px]">Doctor earns {formatINR(Math.round(1080 * 0.32))} margin per refill unit compared to {formatINR(Math.round(1350 * 0.25))} on standard full packs.</p>
               </div>
             </div>
 
@@ -220,7 +254,7 @@ export const OnboardingView: React.FC = () => {
           <div className="space-y-2 border border-gray-200 dark:border-charcoal-800 rounded-2xl p-4">
             <div className="flex justify-between font-semibold pb-2 border-b">
               <span>Included in Free Starter Kit:</span>
-              <span className="text-brand-600 font-bold">100% Consignment (₹0 Upfront)</span>
+              <span className="text-brand-600 font-bold">100% Consignment ({formatINR(0)} Upfront)</span>
             </div>
             <ul className="space-y-1 text-gray-600 dark:text-gray-300">
               <li>• 25x Daily Ceramide Barrier Refill Pods (50 ml)</li>
@@ -254,7 +288,7 @@ export const OnboardingView: React.FC = () => {
             Step 4: Nominate Lead Reception Dispenser
           </h2>
           <p className="text-gray-500">
-            This staff member receives micro-training access and earns ₹10 per refill.
+            This staff member receives micro-training access and earns {formatINR(10)} per refill.
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

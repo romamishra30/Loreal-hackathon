@@ -1,6 +1,7 @@
 import React from 'react'
-import { LucideIcon } from 'lucide-react'
+import { LucideIcon, Info } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { useUiStore } from '../../store/useUiStore'
 
 interface StatCardProps {
   title: string
@@ -8,6 +9,8 @@ interface StatCardProps {
   subtext?: string
   icon?: LucideIcon
   iconColor?: string
+  kpiId?: string
+  onInfoClick?: () => void
   trend?: {
     value: string
     isPositive: boolean
@@ -23,10 +26,23 @@ export const StatCard: React.FC<StatCardProps> = ({
   subtext,
   icon: Icon,
   iconColor = 'text-brand-600',
+  kpiId,
+  onInfoClick,
   trend,
   className,
   highlight = false,
 }) => {
+  const { openPopover } = useUiStore()
+
+  const handleInfo = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (onInfoClick) {
+      onInfoClick()
+    } else if (kpiId) {
+      openPopover('formula', kpiId)
+    }
+  }
+
   return (
     <div
       className={cn(
@@ -39,14 +55,25 @@ export const StatCard: React.FC<StatCardProps> = ({
     >
       <div className="flex items-start justify-between">
         <div>
-          <p
-            className={cn(
-              'text-xs font-semibold uppercase tracking-wider',
-              highlight ? 'text-brand-200' : 'text-charcoal-700 dark:text-gray-400'
+          <div className="flex items-center gap-1.5">
+            <p
+              className={cn(
+                'text-xs font-semibold uppercase tracking-wider',
+                highlight ? 'text-brand-200' : 'text-charcoal-700 dark:text-gray-400'
+              )}
+            >
+              {title}
+            </p>
+            {(kpiId || onInfoClick) && (
+              <button
+                onClick={handleInfo}
+                className="p-0.5 rounded text-gray-400 hover:text-brand-600 dark:hover:text-emerald-400 transition-colors"
+                title="Why this number? View formula & inputs"
+              >
+                <Info className="w-3.5 h-3.5" />
+              </button>
             )}
-          >
-            {title}
-          </p>
+          </div>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="text-2xl lg:text-3xl font-bold font-sans tracking-tight">
               {value}

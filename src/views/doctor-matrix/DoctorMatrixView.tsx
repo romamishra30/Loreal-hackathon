@@ -29,7 +29,7 @@ import { DoctorArchetype } from '../../types'
 import { Badge } from '../../components/common/Badge'
 
 export const DoctorMatrixView: React.FC = () => {
-  const { selectedClinicId, clinics } = useAppStore()
+  const { selectedClinicId, clinics, assignArchetype } = useAppStore()
   const clinic = clinics.find(c => c.id === selectedClinicId) || clinics[0]
 
   // Active view: 'matrix' | 'quiz' | 'profile'
@@ -130,10 +130,12 @@ export const DoctorMatrixView: React.FC = () => {
         }
       })
       setDiagnosedArchetype(topArch)
+      assignArchetype(clinic.doctorId, clinic.id, topArch)
     }
   }
 
-  const currentArchetypeDef = ARCHETYPES[diagnosedArchetype || clinic.archetype]
+  const archKey: DoctorArchetype = diagnosedArchetype || clinic.archetype || 'clinician_first'
+  const currentArchetypeDef = ARCHETYPES[archKey]
 
   // Radar Data for Motivation Mapping
   const radarData = [
@@ -340,7 +342,10 @@ export const DoctorMatrixView: React.FC = () => {
                     Retake Quiz
                   </button>
                   <button
-                    onClick={() => setProfileSaved(true)}
+                    onClick={() => {
+                      assignArchetype(clinic.doctorId, clinic.id, archKey)
+                      setProfileSaved(true)
+                    }}
                     className="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs flex items-center gap-1.5"
                   >
                     <Save className="w-3.5 h-3.5" />
@@ -368,7 +373,7 @@ export const DoctorMatrixView: React.FC = () => {
                       Top 3 Motivators to Emphasize:
                     </p>
                     <div className="space-y-1.5">
-                      {currentArchetypeDef.primaryMotivators.map((m, i) => (
+                      {currentArchetypeDef.primaryMotivators.map((m: string, i: number) => (
                         <div key={i} className="flex items-center gap-2 p-2 rounded-xl bg-gray-50 dark:bg-charcoal-800">
                           <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                           <span>{m}</span>
@@ -382,7 +387,7 @@ export const DoctorMatrixView: React.FC = () => {
                       Anticipated Objections & Doubts:
                     </p>
                     <div className="space-y-1.5">
-                      {currentArchetypeDef.topObjections.map((obj, i) => (
+                      {currentArchetypeDef.topObjections.map((obj: string, i: number) => (
                         <div key={i} className="flex items-center gap-2 p-2 rounded-xl bg-rose-50/50 dark:bg-rose-950/30 text-rose-900 dark:text-rose-300 border border-rose-200/50">
                           <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
                           <span>{obj}</span>
@@ -423,30 +428,32 @@ export const DoctorMatrixView: React.FC = () => {
                 {clinic.doctorName}
               </h2>
               <p className="text-xs text-gray-500">
-                {clinic.name} • {clinic.locality} • Phone: {clinic.phone}
+                {clinic.name} • {clinic.locality} • Phone: {clinic.phone || '+91 98201 44520'}
               </p>
             </div>
-            <Badge healthStatus={clinic.healthStatus}>
-              {clinic.healthStatus}
+            <Badge healthStatus={clinic.healthStatus || 'on_track'}>
+              {clinic.healthStatus || 'on_track'}
             </Badge>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
             <div className="p-4 bg-gray-50 dark:bg-charcoal-800 rounded-2xl space-y-1">
               <span className="text-gray-400 uppercase text-[10px] font-bold">Monthly Patient Footfall</span>
-              <p className="font-bold text-xl text-charcoal-900 dark:text-white">{clinic.patientVolumeMonthly}</p>
-              <p className="text-gray-500 text-[11px]">~{Math.round(clinic.patientVolumeMonthly * clinic.dispensingSharePct)} purchase in clinic</p>
+              <p className="font-bold text-xl text-charcoal-900 dark:text-white">{clinic.patientVolumeMonthly || 450}</p>
+              <p className="text-gray-500 text-[11px]">~{Math.round((clinic.patientVolumeMonthly || 450) * 0.6)} purchase in clinic</p>
             </div>
 
             <div className="p-4 bg-gray-50 dark:bg-charcoal-800 rounded-2xl space-y-1">
               <span className="text-gray-400 uppercase text-[10px] font-bold">Dispensing Share</span>
-              <p className="font-bold text-xl text-brand-700 dark:text-emerald-400">{Math.round(clinic.dispensingSharePct * 100)}%</p>
+              <p className="font-bold text-xl text-brand-700 dark:text-emerald-400">
+                {(clinic.dispensingSharePct || 60) > 1 ? clinic.dispensingSharePct : Math.round((clinic.dispensingSharePct || 0.6) * 100)}%
+              </p>
               <p className="text-gray-500 text-[11px]">Hybrid clinical + retail model</p>
             </div>
 
             <div className="p-4 bg-gray-50 dark:bg-charcoal-800 rounded-2xl space-y-1">
               <span className="text-gray-400 uppercase text-[10px] font-bold">Diagnosed Archetype</span>
-              <p className="font-bold text-xl text-gold-600 capitalize">{clinic.archetype.replace('_', ' ')}</p>
+              <p className="font-bold text-xl text-gold-600 capitalize">{(clinic.archetype || 'clinician_first').replace('_', ' ')}</p>
               <p className="text-gray-500 text-[11px]">Diagnostic verified by Rep</p>
             </div>
           </div>

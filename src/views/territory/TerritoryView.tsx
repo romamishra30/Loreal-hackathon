@@ -24,27 +24,47 @@ import {
   Info
 } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
-import { Clinic, ActionTask, HealthStatus, DoctorArchetype } from '../../types'
+import { useUiStore } from '../../store/useUiStore'
+import { HealthStatus, DoctorArchetype } from '../../types'
+import { Clinic } from '../../domain/entities'
 import { Badge } from '../../components/common/Badge'
 import { StatCard } from '../../components/common/StatCard'
 import { formatINR, formatDate, formatDateTime } from '../../lib/utils'
 import { calculateSustainabilityImpact } from '../../lib/calculations'
+import {
+  selectTerritoryCompletedTxs,
+  selectTerritoryPlasticKg,
+  selectTerritoryRefills30d,
+  selectTerritoryRefillRate,
+  selectTerritoryRepeatRate,
+  selectTerritoryMoM,
+  selectTerritoryWoW,
+  selectTerritoryNps,
+} from '../../domain/selectors/territorySelectors'
+import { selectClinicRefills30d, selectClinicBinCount } from '../../domain/selectors/clinicSelectors'
 import Papa from 'papaparse'
+import { t } from '../../i18n'
 
 export const TerritoryView: React.FC = () => {
   const {
     clinics,
     transactions,
+    skus,
+    patients,
+    feedback,
     stockItems,
+    returnPacks,
+    pickupTasks,
     actionTasks,
     visits,
+    config,
     completeTask,
     snoozeTask,
     setSelectedClinicId,
     setPersona,
   } = useAppStore()
 
-  // Main territory: Mumbai-Thane (25 clinics)
+  // Main territory: Mumbai-Thane
   const territoryClinics = clinics.filter(c => c.territoryId === 'terr-mumbai-thane')
   const completedTxs = transactions.filter(t => t.status === 'completed')
 
@@ -60,33 +80,39 @@ export const TerritoryView: React.FC = () => {
   // Filtered Clinics
   const filteredClinics = territoryClinics.filter(c => {
     const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          c.doctorName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          (c.doctorName && c.doctorName.toLowerCase().includes(searchQuery.toLowerCase())) ||
                           c.locality.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesStatus = statusFilter === 'all' || c.healthStatus === statusFilter
-    const matchesArchetype = archetypeFilter === 'all' || c.archetype === archetypeFilter
+    const matchesStatus = statusFilter === 'all' || (c.healthStatus || 'on_track') === statusFilter
+    const matchesArchetype = archetypeFilter === 'all' || (c.archetype || 'clinician_first') === archetypeFilter
     return matchesSearch && matchesStatus && matchesArchetype
   })
 
-  // Aggregate KPI Calculations
-  const totalRefills = territoryClinics.reduce((sum, c) => sum + c.totalRefillsAllTime, 0)
-  const totalPacksSaved = territoryClinics.reduce((sum, c) => sum + c.totalPacksSavedAllTime, 0)
-  const impact = calculateSustainabilityImpact(totalPacksSaved)
-  const activeCount = territoryClinics.filter(c => c.healthStatus !== 'dormant').length
-  const champions = territoryClinics.filter(c => c.healthStatus === 'champion').length
-  const atRisk = territoryClinics.filter(c => c.healthStatus === 'at_risk' || c.healthStatus === 'dormant').length
+  // Pure Selector-derived territory KPIs
+  const territoryRefills30d = selectTerritoryRefills30d(transactions, territoryClinics, 'terr-mumbai-thane')
+  const territoryRefillRate = selectTerritoryRefillRate(transactions, territoryClinics, 'terr-mumbai-thane')
+  const territoryRepeatRate = selectTerritoryRepeatRate(transactions, patients, territoryClinics, 'terr-mumbai-thane')
+  const territoryMoM = selectTerritoryMoM(transactions, territoryClinics, 'terr-mumbai-thane')
+  const territoryWoW = selectTerritoryWoW(transactions, territoryClinics, 'terr-mumbai-thane')
+  const territoryNps = selectTerritoryNps(feedback || [], territoryClinics, 'terr-mumbai-thane')
+  const territoryPlasticKg = selectTerritoryPlasticKg(transactions, territoryClinics, skus, 'terr-mumbai-thane')
+  const totalPacksSaved = territoryClinics.reduce((sum, c) => sum + (c.totalPacksSavedAllTime || 0), 0)
+  const impact = calculateSustainabilityImpact(Math.max(totalPacksSaved, Math.round(territoryPlasticKg / 0.045)))
+  const activeCount = territoryClinics.filter(c => (c.healthStatus || 'on_track') !== 'dormant').length
+  const champions = territoryClinics.filter(c => (c.healthStatus || 'on_track') === 'champion').length
+  const atRisk = territoryClinics.filter(c => (c.healthStatus || 'on_track') === 'at_risk' || (c.healthStatus || 'on_track') === 'dormant').length
 
   const handleExportClinicsCsv = () => {
     const csv = Papa.unparse(filteredClinics.map(c => ({
       ClinicID: c.id,
       Name: c.name,
-      Doctor: c.doctorName,
+      Doctor: c.doctorName || 'Dr.',
       Locality: c.locality,
-      Archetype: c.archetype,
-      HealthScore: c.healthScore,
-      HealthStatus: c.healthStatus,
-      TotalRefills: c.totalRefillsAllTime,
-      BinPacks: c.binCount,
-      LastVisit: c.lastVisitDate,
+      Archetype: c.archetype || 'clinician_first',
+      HealthScore: c.healthScore || 85,
+      HealthStatus: c.healthStatus || 'on_track',
+      TotalRefills: c.totalRefillsAllTime || 0,
+      BinPacks: selectClinicBinCount(returnPacks || [], pickupTasks || [], c.id),
+      LastVisit: c.lastVisitDate || 'Recent',
     })))
     const blob = new Blob([csv], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
@@ -105,15 +131,15 @@ export const TerritoryView: React.FC = () => {
         <div>
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-xs font-bold uppercase tracking-wider">
-              Pilot Territory (Main)
+              {t('territory.pilotTerritoryBadge')}
             </span>
-            <span className="text-xs text-gray-400 font-mono">MUM-THN-01</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">MUM-THN-01</span>
           </div>
           <h1 className="font-serif font-bold text-2xl sm:text-3xl text-charcoal-900 dark:text-white mt-1">
-            Mumbai–Thane–Navi Mumbai Territory Ops
+            {t('territory.title')}
           </h1>
           <p className="text-xs text-charcoal-600 dark:text-gray-400">
-            Medical Rep: <strong>Vikram Salunkhe</strong> • 25 Dispensing Dermatology Practices
+            Medical Rep: <strong>Vikram Salunkhe</strong> • {territoryClinics.length} Dispensing Dermatology Practices
           </p>
         </div>
 
@@ -123,7 +149,7 @@ export const TerritoryView: React.FC = () => {
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white dark:bg-charcoal-800 border border-gray-200 dark:border-charcoal-700 text-xs font-semibold text-charcoal-700 dark:text-gray-200 hover:bg-gray-50"
           >
             <Info className="w-3.5 h-3.5 text-brand-600" />
-            <span>KPI Framework</span>
+            <span>{t('territory.kpiFrameworkBtn')}</span>
           </button>
 
           <button
@@ -131,7 +157,7 @@ export const TerritoryView: React.FC = () => {
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-brand-50 dark:bg-brand-950 border border-brand-200 dark:border-emerald-800 text-xs font-semibold text-brand-800 dark:text-emerald-300 hover:bg-brand-100"
           >
             <Award className="w-3.5 h-3.5 text-brand-600" />
-            <span>Health Score Formula</span>
+            <span>{t('territory.healthScoreFormulaBtn')}</span>
           </button>
         </div>
       </div>
@@ -139,40 +165,52 @@ export const TerritoryView: React.FC = () => {
       {/* KPI Row (10 Core Metrics) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <StatCard
-          title="Active Clinics"
-          value={`${activeCount} / 25`}
+          kpiId="active_clinics"
+          title={t('territory.activeClinics')}
+          value={`${activeCount} / ${territoryClinics.length}`}
           subtext={`${champions} Champions, ${atRisk} At Risk`}
-          trend={{ value: '+2 this mo', isPositive: true }}
+          trend={{ value: `${champions} top`, isPositive: true }}
+          onInfoClick={() => useUiStore.getState().openPopover('why_this_number')}
         />
         <StatCard
-          title="Refills (30d)"
-          value="1,480"
-          subtext="MoM: +18.4% WoW: +4.2%"
-          trend={{ value: '18.4%', isPositive: true }}
+          kpiId="refills_30d"
+          title={t('territory.refills30d')}
+          value={territoryRefills30d.toLocaleString('en-IN')}
+          subtext={`MoM: ${territoryMoM >= 0 ? '+' : ''}${territoryMoM}% WoW: ${territoryWoW >= 0 ? '+' : ''}${territoryWoW}%`}
+          trend={{ value: `${territoryMoM}%`, isPositive: territoryMoM >= 0 }}
           highlight={true}
+          onInfoClick={() => useUiStore.getState().openPopover('why_this_number')}
         />
         <StatCard
-          title="Refill Rate"
-          value="42.4%"
-          subtext="Target: 40.0% (+2.4% lift)"
-          trend={{ value: '+2.4%', isPositive: true }}
+          kpiId="refill_rate"
+          title={t('territory.refillRate')}
+          value={`${territoryRefillRate.toFixed(1)}%`}
+          subtext="Target: 40.0% benchmark"
+          trend={{ value: `${(territoryRefillRate - 40).toFixed(1)}%`, isPositive: territoryRefillRate >= 40 }}
+          onInfoClick={() => useUiStore.getState().openPopover('why_this_number')}
         />
         <StatCard
-          title="Repeat Adherence"
-          value="61.8%"
+          kpiId="repeat_adherence"
+          title={t('territory.repeatAdherence')}
+          value={`${territoryRepeatRate.toFixed(1)}%`}
           subtext="Baseline was 28.0%"
-          trend={{ value: '2.2x', isPositive: true }}
+          trend={{ value: `${(territoryRepeatRate / 28).toFixed(1)}x`, isPositive: true }}
+          onInfoClick={() => useUiStore.getState().openPopover('why_this_number')}
         />
         <StatCard
-          title="Plastic Saved"
-          value={`${impact.totalKgPlastic} kg`}
-          subtext={`~${impact.waterBottlesEquivalent} PET bottles`}
+          kpiId="plastic_saved"
+          title={t('territory.plasticSaved')}
+          value={`${territoryPlasticKg.toFixed(1)} kg`}
+          subtext={`~${Math.round(territoryPlasticKg / 0.025)} PET bottles`}
+          onInfoClick={() => useUiStore.getState().openPopover('why_this_number')}
         />
         <StatCard
-          title="Patient NPS"
-          value="+74"
-          subtext="Based on 50+ reviews"
-          trend={{ value: 'High', isPositive: true }}
+          kpiId="patient_nps"
+          title={t('territory.patientNps')}
+          value={`+${territoryNps}`}
+          subtext="Verified patient reviews"
+          trend={{ value: territoryNps >= 60 ? 'World-Class' : 'Good', isPositive: true }}
+          onInfoClick={() => useUiStore.getState().openPopover('why_this_number')}
         />
       </div>
 
@@ -187,7 +225,7 @@ export const TerritoryView: React.FC = () => {
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
-            Clinics Directory (25)
+            Clinics Directory ({territoryClinics.length})
           </button>
 
           <button
@@ -308,36 +346,42 @@ export const TerritoryView: React.FC = () => {
                     >
                       <td className="py-3.5 px-4">
                         <p className="font-semibold text-charcoal-900 dark:text-white">{c.name}</p>
-                        <p className="text-[11px] text-gray-400">{c.doctorName} • {c.doctorDegree}</p>
+                        <p className="text-[11px] text-gray-500 dark:text-gray-400">{c.doctorName} • {c.doctorDegree}</p>
                       </td>
                       <td className="py-3.5 px-4 text-charcoal-700 dark:text-gray-300">
                         {c.locality.split('(')[0]}
                       </td>
                       <td className="py-3.5 px-4">
                         <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-100 dark:bg-charcoal-800 text-charcoal-700 dark:text-gray-300 capitalize">
-                          {c.archetype.replace('_', ' ')}
+                          {(c.archetype || 'clinician_first').replace('_', ' ')}
                         </span>
                       </td>
                       <td className="py-3.5 px-4 text-center">
                         <span className="font-bold text-sm text-charcoal-900 dark:text-white">
-                          {c.healthScore}
+                          {c.healthScore || 85}
                         </span>
-                        <span className="text-[10px] text-gray-400">/100</span>
+                        <span className="text-[10px] text-gray-500 dark:text-gray-400">/100</span>
                       </td>
                       <td className="py-3.5 px-4 text-center">
-                        <Badge healthStatus={c.healthStatus} size="sm">
-                          {c.healthStatus.replace('_', ' ')}
+                        <Badge healthStatus={c.healthStatus || 'on_track'} size="sm">
+                          {(c.healthStatus || 'on_track').replace('_', ' ')}
                         </Badge>
                       </td>
                       <td className="py-3.5 px-4 text-right font-semibold text-charcoal-900 dark:text-white">
-                        {Math.round(c.totalRefillsAllTime * 0.35)}
+                        {selectClinicRefills30d(transactions, c.id)}
                       </td>
                       <td className="py-3.5 px-4 text-center">
-                        <span className={`font-mono text-xs font-semibold ${
-                          c.binCount >= c.binThreshold ? 'text-rose-600 font-bold' : 'text-gray-600 dark:text-gray-300'
-                        }`}>
-                          {c.binCount}/20
-                        </span>
+                        {(() => {
+                          const bin = selectClinicBinCount(returnPacks || [], pickupTasks || [], c.id)
+                          const threshold = c.binThreshold || 20
+                          return (
+                            <span className={`font-mono text-xs font-semibold ${
+                              bin >= threshold ? 'text-rose-600 font-bold' : 'text-gray-600 dark:text-gray-300'
+                            }`}>
+                              {bin}/{threshold}
+                            </span>
+                          )
+                        })()}
                       </td>
                       <td className="py-3.5 px-4 text-right">
                         <button
@@ -405,9 +449,10 @@ export const TerritoryView: React.FC = () => {
                 const y = 440 - ((c.lat - 19.01) / 0.26) * 380
 
                 let pinColor = '#10b981' // green
-                if (c.healthStatus === 'on_track') pinColor = '#3b82f6' // blue
-                else if (c.healthStatus === 'at_risk') pinColor = '#f59e0b' // amber
-                else if (c.healthStatus === 'dormant') pinColor = '#f43f5e' // red
+                const stat = c.healthStatus || 'on_track'
+                if (stat === 'on_track') pinColor = '#3b82f6' // blue
+                else if (stat === 'at_risk') pinColor = '#f59e0b' // amber
+                else if (stat === 'dormant') pinColor = '#f43f5e' // red
 
                 return (
                   <g
@@ -497,7 +542,7 @@ export const TerritoryView: React.FC = () => {
                     </span>
                   </div>
                   <p className="text-gray-500">
-                    Clinic: <strong>{task.clinicName}</strong> ({task.doctorName}) • Locality: {task.locality}
+                    Clinic: <strong>{task.clinicName || 'Clinic'}</strong> ({task.doctorName || 'Doctor'}) • Locality: {task.locality || 'Locality'}
                   </p>
                   <p className="text-charcoal-700 dark:text-gray-300 leading-relaxed pt-1">
                     {task.description}
@@ -555,13 +600,13 @@ export const TerritoryView: React.FC = () => {
               >
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm text-charcoal-900 dark:text-white">{v.clinicName}</span>
-                    <span className="text-gray-400">• {formatDate(v.date)} at {v.timeSlot}</span>
+                    <span className="font-bold text-sm text-charcoal-900 dark:text-white">{v.clinicName || 'Clinic'}</span>
+                    <span className="text-gray-500 dark:text-gray-400">• {formatDate(v.date)} at {v.timeSlot}</span>
                     <Badge variant={v.status === 'completed' ? 'success' : 'warning'} size="sm">
                       {v.status}
                     </Badge>
                   </div>
-                  <p className="text-gray-500 mt-0.5">Doctor: {v.doctorName} • Visit Type: {v.type}</p>
+                  <p className="text-gray-500 mt-0.5">Doctor: {v.doctorName || 'Doctor'} • Visit Type: {v.type}</p>
                   {v.notes && (
                     <p className="text-charcoal-700 dark:text-gray-300 italic mt-1 bg-gray-50 dark:bg-charcoal-800 p-2 rounded-xl">
                       "{v.notes}"
@@ -571,7 +616,7 @@ export const TerritoryView: React.FC = () => {
 
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => alert(`Checked in at ${v.clinicName} (GPS Lat/Lng verified: 19.1982, 72.9644)`)}
+                    onClick={() => alert(`Checked in at ${v.clinicName || 'Clinic'} (GPS Lat/Lng verified: 19.1982, 72.9644)`)}
                     className="px-3 py-1.5 rounded-xl bg-gray-100 dark:bg-charcoal-800 hover:bg-gray-200 text-charcoal-800 dark:text-gray-200 font-semibold"
                   >
                     Check In (Mock GPS)
@@ -608,11 +653,11 @@ export const TerritoryView: React.FC = () => {
               <div className="p-4 rounded-2xl bg-brand-50 dark:bg-brand-950/60 border border-brand-200 dark:border-emerald-800 flex items-center justify-between">
                 <div>
                   <p className="text-[10px] font-bold uppercase text-brand-700 dark:text-emerald-300">Adoption Health Score</p>
-                  <p className="text-3xl font-extrabold text-brand-900 dark:text-emerald-400">{selectedClinic360.healthScore} / 100</p>
-                  <p className="text-[11px] text-gray-500 mt-0.5">Status: {selectedClinic360.healthStatus.toUpperCase()}</p>
+                  <p className="text-3xl font-extrabold text-brand-900 dark:text-emerald-400">{selectedClinic360.healthScore || 85} / 100</p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">Status: {(selectedClinic360.healthStatus || 'on_track').toUpperCase()}</p>
                 </div>
-                <Badge healthStatus={selectedClinic360.healthStatus}>
-                  {selectedClinic360.healthStatus}
+                <Badge healthStatus={selectedClinic360.healthStatus || 'on_track'}>
+                  {selectedClinic360.healthStatus || 'on_track'}
                 </Badge>
               </div>
 
@@ -623,9 +668,9 @@ export const TerritoryView: React.FC = () => {
                   Recommended Next Best Action (Rule-Generated)
                 </p>
                 <p className="text-[11px] leading-relaxed">
-                  {selectedClinic360.healthStatus === 'dormant'
-                    ? 'Visit in person this Thursday: Doctor is concerned about receptionist time. Demonstrate 22-second counter flow and provide ₹10/refill staff voucher incentive.'
-                    : selectedClinic360.binCount >= 18
+                  {(selectedClinic360.healthStatus || 'on_track') === 'dormant'
+                    ? `Visit in person this Thursday: Doctor is concerned about receptionist time. Demonstrate 22-second counter flow and provide ${formatINR(config.staffIncentivePerRefillINR || 10)}/refill staff voucher incentive.`
+                    : selectClinicBinCount(returnPacks || [], pickupTasks || [], selectedClinic360.id) >= 18
                     ? 'Schedule immediate courier pickup for 20 returns to keep front desk clear.'
                     : 'Doctor is an Eco Advocate. Present framed Green Clinic Certificate to display on waiting room wall.'}
                 </p>
@@ -636,37 +681,43 @@ export const TerritoryView: React.FC = () => {
                 <p className="font-bold text-charcoal-900 dark:text-white uppercase text-[10px] tracking-wider">Practice Profile</p>
                 <div className="grid grid-cols-2 gap-2 p-3 bg-gray-50 dark:bg-charcoal-800 rounded-xl">
                   <div>
-                    <span className="text-gray-400">Doctor:</span>
+                    <span className="text-gray-500 dark:text-gray-400">Doctor:</span>
                     <p className="font-semibold">{selectedClinic360.doctorName}</p>
                   </div>
                   <div>
-                    <span className="text-gray-400">Archetype:</span>
-                    <p className="font-semibold capitalize">{selectedClinic360.archetype.replace('_', ' ')}</p>
+                    <span className="text-gray-500 dark:text-gray-400">Archetype:</span>
+                    <p className="font-semibold capitalize">{(selectedClinic360.archetype || 'clinician_first').replace('_', ' ')}</p>
                   </div>
                   <div>
-                    <span className="text-gray-400">Patient Volume:</span>
-                    <p className="font-semibold">{selectedClinic360.patientVolumeMonthly} patients/mo</p>
+                    <span className="text-gray-500 dark:text-gray-400">Patient Volume:</span>
+                    <p className="font-semibold">{selectedClinic360.patientVolumeMonthly || 450} patients/mo</p>
                   </div>
                   <div>
-                    <span className="text-gray-400">Dispensing Share:</span>
-                    <p className="font-semibold">{Math.round(selectedClinic360.dispensingSharePct * 100)}%</p>
+                    <span className="text-gray-500 dark:text-gray-400">Dispensing Share:</span>
+                    <p className="font-semibold">{Math.round((selectedClinic360.dispensingSharePct || 60) > 1 ? (selectedClinic360.dispensingSharePct || 60) : (selectedClinic360.dispensingSharePct || 0.6) * 100)}%</p>
                   </div>
                 </div>
               </div>
 
               {/* Reverse Logistics & Bin */}
-              <div className="p-3 bg-gray-50 dark:bg-charcoal-800 rounded-xl space-y-1">
-                <div className="flex justify-between">
-                  <span className="font-semibold">Returns Bin Level:</span>
-                  <span className="font-bold">{selectedClinic360.binCount} / {selectedClinic360.binThreshold} packs</span>
-                </div>
-                <div className="w-full h-2 bg-gray-200 dark:bg-charcoal-700 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-emerald-500"
-                    style={{ width: `${(selectedClinic360.binCount / selectedClinic360.binThreshold) * 100}%` }}
-                  />
-                </div>
-              </div>
+              {(() => {
+                const drawerBin = selectClinicBinCount(returnPacks || [], pickupTasks || [], selectedClinic360.id)
+                const drawerThreshold = selectedClinic360.binThreshold || 20
+                return (
+                  <div className="p-3 bg-gray-50 dark:bg-charcoal-800 rounded-xl space-y-1">
+                    <div className="flex justify-between">
+                      <span className="font-semibold">Returns Bin Level:</span>
+                      <span className="font-bold">{drawerBin} / {drawerThreshold} packs</span>
+                    </div>
+                    <div className="w-full h-2 bg-gray-200 dark:bg-charcoal-700 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-emerald-500"
+                        style={{ width: `${Math.min(100, ((drawerBin / drawerThreshold) * 100))}%` }}
+                      />
+                    </div>
+                  </div>
+                )
+              })()}
 
               {/* Open in Counter as Staff */}
               <button

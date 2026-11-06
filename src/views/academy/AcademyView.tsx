@@ -19,6 +19,7 @@ import { useAppStore } from '../../store/useAppStore'
 import { TRAINING_MODULES } from '../../data/seedConstants'
 import { TrainingModule } from '../../types'
 import confetti from 'canvas-confetti'
+import { formatINR } from '../../lib/utils'
 
 export const AcademyView: React.FC = () => {
   const { selectedClinicId, clinics, staffMembers, completeTrainingModule } = useAppStore()
@@ -35,7 +36,7 @@ export const AcademyView: React.FC = () => {
   const [sandboxBatch, setSandboxBatch] = useState('TEST-999')
 
   const currentModule = TRAINING_MODULES.find(m => m.id === activeModuleId) || TRAINING_MODULES[0]
-  const isModuleDone = staff?.completedModules.includes(currentModule.id)
+  const isModuleDone = staff?.completedModules?.includes(currentModule.id)
 
   const handleSelectAnswer = (qIndex: number, optIndex: number) => {
     setSelectedAnswers({ ...selectedAnswers, [qIndex]: optIndex })
@@ -85,7 +86,7 @@ export const AcademyView: React.FC = () => {
             Clinic Staff Refill Certification Academy
           </h1>
           <p className="text-xs text-charcoal-600 dark:text-gray-400">
-            6 bite-sized modules (&lt;3 min each). Certified staff ensure reliable in-clinic execution and earn ₹10 per refill.
+            6 bite-sized modules (&lt;3 min each). Certified staff ensure reliable in-clinic execution and earn {formatINR(10)} per refill.
           </p>
         </div>
 
@@ -126,7 +127,7 @@ export const AcademyView: React.FC = () => {
           <div>
             <p className="text-gray-400 text-[10px] uppercase">Completed</p>
             <p className="text-brand-700 dark:text-emerald-400 font-bold text-sm">
-              {staff?.completedModules.length} / 6 Modules
+              {staff?.completedModules?.length || 0} / 6 Modules
             </p>
           </div>
           <div>
@@ -224,7 +225,7 @@ export const AcademyView: React.FC = () => {
               Course Curriculum
             </p>
             {TRAINING_MODULES.map((mod) => {
-              const isDone = staff?.completedModules.includes(mod.id)
+              const isDone = staff?.completedModules?.includes(mod.id)
               const isActive = mod.id === activeModuleId
 
               return (

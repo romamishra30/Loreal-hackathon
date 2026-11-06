@@ -42,16 +42,19 @@ import {
 import { OBJECTIONS_LIBRARY } from '../../data/seedConstants'
 import { formatINR, formatPercent } from '../../lib/utils'
 import { QRCodeSVG } from 'qrcode.react'
+import { selectClinicDefaultEconomics } from '../../domain/selectors/clinicSelectors'
 
 export const PitchStudioView: React.FC = () => {
-  const { selectedClinicId, clinics } = useAppStore()
+  const { selectedClinicId, clinics, patients, transactions, config, skus } = useAppStore()
   const clinic = clinics.find(c => c.id === selectedClinicId) || clinics[0]
 
   // Sub-navigation tabs: 'economics' | 'pitch' | 'objections' | 'deck' | 'print'
   const [activeTab, setActiveTab] = useState<'economics' | 'pitch' | 'objections' | 'deck' | 'print'>('economics')
 
   // Economics Calculator Live Sliders State
-  const [econInput, setEconInput] = useState<EconomicsInput>(DEFAULT_ECONOMICS)
+  const [econInput, setEconInput] = useState<EconomicsInput>(() =>
+    selectClinicDefaultEconomics(clinic.id, patients, transactions, config, skus)
+  )
   const econOutput = calculateClinicEconomics(econInput)
 
   // Pitch Builder State
@@ -59,6 +62,13 @@ export const PitchStudioView: React.FC = () => {
   const [clinicNameInput, setClinicNameInput] = useState(clinic.name)
   const [pitchFormat, setPitchFormat] = useState<'30sec' | '2min' | 'whatsapp' | 'email'>('30sec')
   const [copiedPitch, setCopiedPitch] = useState(false)
+
+  // Sync when clinic changes
+  React.useEffect(() => {
+    setEconInput(selectClinicDefaultEconomics(clinic.id, patients, transactions, config, skus))
+    setDoctorNameInput(clinic.doctorName)
+    setClinicNameInput(clinic.name)
+  }, [clinic.id])
 
   // Objection Library State
   const [objectionSearch, setObjectionSearch] = useState('')

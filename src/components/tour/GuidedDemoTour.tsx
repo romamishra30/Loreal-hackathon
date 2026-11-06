@@ -1,7 +1,8 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Sparkles, X, ChevronRight, ChevronLeft, CheckCircle2, Award, ArrowRight } from 'lucide-react'
+import { Sparkles, X, ChevronRight, ChevronLeft, CheckCircle2, Award, ArrowRight, Zap, Check } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
+import { useUiStore } from '../../store/useUiStore'
 import { PersonaRole } from '../../types'
 
 interface TourStep {
@@ -10,17 +11,20 @@ interface TourStep {
   deliverableBadge: string
   targetRole: PersonaRole
   targetPath: string
+  targetSelector?: string
   description: string
   keyHighlights: string[]
+  isInteractiveRefill?: boolean
 }
 
 const TOUR_STEPS: TourStep[] = [
   {
     title: 'The Challenge & The Dispensing Dermatologist',
-    subtitle: 'L\'Oréal Sustainability Challenge 2026 – Medical Track',
+    subtitle: "L'Oréal Sustainability Challenge 2026 – Medical Track",
     deliverableBadge: 'Context & Foundation',
     targetRole: 'rep',
     targetPath: '/',
+    targetSelector: 'h1',
     description: '45% of dermatologists in key markets are dispensing dermatologists: they stock and sell skincare directly from their clinics. A dispensing doctor thinks like a small-business owner (margins, inventory, staff bandwidth) AND like a clinician (efficacy, safety, patient trust).',
     keyHighlights: [
       'Refill must be pitched as Practice-Growth + Patient-Loyalty',
@@ -34,6 +38,7 @@ const TOUR_STEPS: TourStep[] = [
     deliverableBadge: 'Deliverable (a)',
     targetRole: 'rep',
     targetPath: '/doctor-matrix',
+    targetSelector: 'h1',
     description: 'Discover how dispensing dermatologists weigh margins, stock risks, and clinic footfall differently from prescribing purists. Use the 8-question diagnostic quiz to classify a doctor into 5 distinct archetypes.',
     keyHighlights: [
       'Side-by-side Decision-Driver Weight comparison (1 to 5)',
@@ -47,6 +52,7 @@ const TOUR_STEPS: TourStep[] = [
     deliverableBadge: 'Deliverable (c)',
     targetRole: 'rep',
     targetPath: '/pitch-studio',
+    targetSelector: 'h1',
     description: 'Prove the business case with live sliders: how 32% refill margins and 2.2x repeat purchase lift generate ₹1.2L+ incremental practice profit. Test objection handling against 12+ tough doctor doubts.',
     keyHighlights: [
       'Live Unit Economics calculator & 12-month cumulative cash curve',
@@ -60,7 +66,9 @@ const TOUR_STEPS: TourStep[] = [
     deliverableBadge: 'Deliverable (b)',
     targetRole: 'staff',
     targetPath: '/counter',
+    targetSelector: 'header',
     description: 'Refill transactions must never slow down the clinic OPD. Experience the 3-tap counter flow: scan patient QR, verify empty bottle & anti-fraud batch code, dispense sealed pod in under 25 seconds.',
+    isInteractiveRefill: true,
     keyHighlights: [
       '3-tap flow completed in ~22 seconds with zero paperwork',
       'Duplicate batch-code anti-fraud protection',
@@ -73,6 +81,7 @@ const TOUR_STEPS: TourStep[] = [
     deliverableBadge: 'Patient Retention',
     targetRole: 'patient',
     targetPath: '/patient',
+    targetSelector: 'header',
     description: 'Patients receive automated WhatsApp reminders on day 25 of their 30-day cycle with their digital Refill Pass. They save 20% on price while seeing their personal plastic diversion metrics grow.',
     keyHighlights: [
       'Usage countdown ring & automated WhatsApp adherence chat preview',
@@ -86,6 +95,7 @@ const TOUR_STEPS: TourStep[] = [
     deliverableBadge: 'Deliverable (d)',
     targetRole: 'rep',
     targetPath: '/territory',
+    targetSelector: 'h1',
     description: 'The Medical Rep monitors the Mumbai–Thane territory. Clinics are scored from 0–100 using a multi-factor Adoption Health Score, with automated rule-based tasks in the Action Centre.',
     keyHighlights: [
       'Adoption Health Score formula (Rate, Consistency, Stock, Staff)',
@@ -99,6 +109,7 @@ const TOUR_STEPS: TourStep[] = [
     deliverableBadge: 'Brand Strategy',
     targetRole: 'manager',
     targetPath: '/brand-admin',
+    targetSelector: 'h1',
     description: 'Regional management tracks performance across 100 clinics in 4 metro territories. Inspect pilot go/no-go scorecards and simulate nationwide rollout to 2,000+ clinics.',
     keyHighlights: [
       'Multi-territory adoption heatmap & rep performance ranking',
@@ -110,7 +121,23 @@ const TOUR_STEPS: TourStep[] = [
 
 export const GuidedDemoTour: React.FC = () => {
   const navigate = useNavigate()
-  const { activeTourStep, setPersona, nextTourStep, prevTourStep, endTour } = useAppStore()
+  const { activeTourStep, setPersona, nextTourStep, prevTourStep, endTour, processRefill, selectedClinicId, patients, skus } = useAppStore()
+  const { closePopover } = useUiStore()
+  const [liveRefillDone, setLiveRefillDone] = useState(false)
+
+  useEffect(() => {
+    if (activeTourStep === null || activeTourStep < 0 || activeTourStep >= TOUR_STEPS.length) return
+    const current = TOUR_STEPS[activeTourStep]
+    if (!current?.targetSelector) return
+
+    const el = document.querySelector(current.targetSelector)
+    if (el) {
+      el.setAttribute('data-tour-target', 'true')
+      return () => {
+        el.removeAttribute('data-tour-target')
+      }
+    }
+  }, [activeTourStep])
 
   if (activeTourStep === null || activeTourStep < 0 || activeTourStep >= TOUR_STEPS.length) {
     return null
@@ -119,6 +146,8 @@ export const GuidedDemoTour: React.FC = () => {
   const current = TOUR_STEPS[activeTourStep]
 
   const handleStepTransition = (direction: 'next' | 'prev') => {
+    closePopover()
+    setLiveRefillDone(false)
     const nextIndex = direction === 'next' ? activeTourStep + 1 : activeTourStep - 1
     if (nextIndex < 0 || nextIndex >= TOUR_STEPS.length) {
       endTour()
@@ -131,9 +160,29 @@ export const GuidedDemoTour: React.FC = () => {
     else prevTourStep()
   }
 
+  const handleTriggerLiveRefill = () => {
+    const res = processRefill({
+      clinicId: selectedClinicId,
+      patientId: patients[0]?.id || 'pat-1',
+      skuId: skus[0]?.id || 'sku-moisturiser-50',
+      batchCode: `TOUR-${Math.floor(100 + Math.random() * 900)}`,
+      paymentMode: 'upi',
+    })
+    if (res.success) {
+      setLiveRefillDone(true)
+    }
+  }
+
   return (
-    <div className="fixed inset-x-0 bottom-6 z-50 flex justify-center px-4 pointer-events-none animate-fade-in">
-      <div className="w-full max-w-2xl bg-white dark:bg-charcoal-900 rounded-3xl shadow-2xl border-2 border-brand-500/60 dark:border-emerald-500/60 p-5 pointer-events-auto backdrop-blur-xl">
+    <div className="fixed inset-0 z-50 pointer-events-none flex flex-col justify-end p-4 sm:p-6 animate-fade-in">
+      {/* Dim Backdrop with Spotlight cutout overlay */}
+      <div 
+        className="fixed inset-0 bg-charcoal-950/60 dark:bg-black/75 pointer-events-auto backdrop-blur-[2px] transition-opacity"
+        onClick={endTour}
+      />
+
+      {/* Floating Tour Stepper Card */}
+      <div id="tour-card" data-testid="tour-card" className="relative z-10 w-full max-w-2xl mx-auto bg-white dark:bg-charcoal-900 rounded-3xl shadow-2xl border-2 border-brand-500/80 dark:border-emerald-500/80 p-5 sm:p-6 pointer-events-auto backdrop-blur-xl">
         
         {/* Stepper Header */}
         <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-charcoal-800">
@@ -156,15 +205,51 @@ export const GuidedDemoTour: React.FC = () => {
 
         {/* Content */}
         <div className="py-3 space-y-2">
-          <h3 className="font-serif font-bold text-lg text-charcoal-900 dark:text-white">
+          <h3 className="font-serif font-bold text-lg sm:text-xl text-charcoal-900 dark:text-white">
             {current.title}
           </h3>
-          <p className="text-xs text-brand-600 dark:text-emerald-400 font-medium">
+          <p className="text-xs text-brand-600 dark:text-emerald-400 font-semibold">
             {current.subtitle}
           </p>
           <p className="text-xs text-charcoal-700 dark:text-gray-300 leading-relaxed">
             {current.description}
           </p>
+
+          {/* Interactive Live Refill Demo Feature */}
+          {current.isInteractiveRefill && (
+            <div className="p-3 my-2 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5">
+                  <Zap className="w-4 h-4 text-emerald-600 fill-emerald-500" />
+                  Live Action: Dispense a Refill
+                </p>
+                <p className="text-[11px] text-emerald-700 dark:text-emerald-300">
+                  Simulate an instant refill. Watch clinic inventory decrement and territory KPI increment live!
+                </p>
+              </div>
+              <button
+                onClick={handleTriggerLiveRefill}
+                disabled={liveRefillDone}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shrink-0 transition-all ${
+                  liveRefillDone
+                    ? 'bg-emerald-600 text-white cursor-default'
+                    : 'bg-emerald-700 hover:bg-emerald-800 text-white shadow-md active:scale-95'
+                }`}
+              >
+                {liveRefillDone ? (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Dispensed! +1 Refill</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Try 1-Tap Refill</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
 
           <div className="mt-2 pt-2 border-t border-gray-100 dark:border-charcoal-800 grid grid-cols-1 sm:grid-cols-3 gap-2">
             {current.keyHighlights.map((hl, idx) => (
@@ -218,4 +303,3 @@ export const GuidedDemoTour: React.FC = () => {
     </div>
   )
 }
-

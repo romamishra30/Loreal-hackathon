@@ -8,6 +8,21 @@ export default {
   theme: {
     extend: {
       colors: {
+        surface: {
+          DEFAULT: 'var(--bg-surface)',
+          muted: 'var(--bg-surface-muted)',
+          elevated: 'var(--bg-surface-elevated)',
+        },
+        page: 'var(--bg-page)',
+        tx: {
+          primary: 'var(--text-primary)',
+          muted: 'var(--text-muted)',
+          subtle: 'var(--text-subtle)',
+        },
+        bdr: {
+          DEFAULT: 'var(--border-color)',
+          subtle: 'var(--border-subtle)',
+        },
         brand: {
           50: '#f0fdf4',
           100: '#dcfce7',
@@ -44,19 +59,25 @@ export default {
           700: '#374151',
           800: '#1f2937',
           900: '#111827',
-          950: '#030712',
+          950: '#090d0b',
         }
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        sans: ['Inter', 'system-ui', '-apple-system', 'Noto Sans Devanagari', 'Mangal', 'sans-serif'],
         serif: ['Fraunces', 'Playfair Display', 'Georgia', 'serif'],
       },
       borderRadius: {
         '2xl': '1rem',
         '3xl': '1.5rem',
       },
+      zIndex: {
+        'popover': '50',
+        'modal': '60',
+        'tour': '70',
+        'toast': '80',
+      },
       animation: {
-        'fade-in': 'fadeIn 0.25s ease-out forwards',
+        'fade-in': 'fadeIn 0.2s ease-out forwards',
         'pulse-subtle': 'pulseSubtle 2.5s infinite ease-in-out',
       },
       keyframes: {
@@ -73,4 +94,3 @@ export default {
   },
   plugins: [],
 }
-

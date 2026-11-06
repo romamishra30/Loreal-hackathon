@@ -28,11 +28,13 @@ import {
 } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
 import { PRODUCT_SKUS } from '../../data/seedConstants'
+import { selectClinicBinCount } from '../../domain/selectors'
 import { checkRefillEligibility, isDuplicateBatch, calculateSustainabilityImpact } from '../../lib/calculations'
 import { formatINR, formatDateTime, formatDate } from '../../lib/utils'
 import { Badge } from '../../components/common/Badge'
 import confetti from 'canvas-confetti'
 import Papa from 'papaparse'
+import { t } from '../../i18n'
 
 export const CounterView: React.FC = () => {
   const {
@@ -41,6 +43,8 @@ export const CounterView: React.FC = () => {
     stockItems,
     transactions,
     returnPacks,
+    returns,
+    pickupTasks,
     patients,
     staffMembers,
     processRefill,
@@ -52,6 +56,8 @@ export const CounterView: React.FC = () => {
   } = useAppStore()
 
   const clinic = clinics.find(c => c.id === selectedClinicId) || clinics[0]
+  const binCount = selectClinicBinCount(returnPacks, pickupTasks, clinic.id)
+  const binThreshold = 20
   const clinicStaff = staffMembers.find(s => s.clinicId === clinic.id) || staffMembers[0]
   const clinicStock = stockItems.filter(s => s.clinicId === clinic.id)
   const clinicTxs = transactions.filter(t => t.clinicId === clinic.id)
@@ -110,8 +116,11 @@ export const CounterView: React.FC = () => {
       return
     }
 
-    // Check duplicate fraud
-    if (isDuplicateBatch(cleanCode, returnPacks)) {
+    // Check duplicate fraud across component state, store state, and persisted returns
+    const storeReturns = useAppStore.getState().returns || []
+    const allReturns = (returns && returns.length >= storeReturns.length) ? returns : storeReturns
+    const isDup = isDuplicateBatch(cleanCode, allReturns as any)
+    if (isDup) {
       setBatchError(`DUPLICATE PACK FRAUD DETECTED: Batch ${cleanCode} was already returned previously!`)
       return
     }
@@ -209,7 +218,7 @@ export const CounterView: React.FC = () => {
           </div>
           <div className="text-center px-3 py-1.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/50">
             <p className="text-[10px] font-bold uppercase text-emerald-700 dark:text-emerald-300">Bin Gauge</p>
-            <p className="text-lg font-bold text-emerald-900 dark:text-emerald-400">{clinic.binCount}/{clinic.binThreshold}</p>
+            <p className="text-lg font-bold text-emerald-900 dark:text-emerald-400">{binCount}/{binThreshold}</p>
           </div>
           <div className="text-center px-3 py-1.5 rounded-2xl bg-gold-50 dark:bg-gold-950/60 border border-gold-200/50">
             <p className="text-[10px] font-bold uppercase text-gold-700 dark:text-gold-300">Staff Pts</p>
@@ -229,7 +238,7 @@ export const CounterView: React.FC = () => {
           }`}
         >
           <QrCode className="w-3.5 h-3.5" />
-          <span>New Refill</span>
+          <span>{t('counter.newRefill')}</span>
         </button>
 
         <button
@@ -241,7 +250,7 @@ export const CounterView: React.FC = () => {
           }`}
         >
           <Package className="w-3.5 h-3.5" />
-          <span>Clinic Stock</span>
+          <span>{t('counter.clinicStock')}</span>
         </button>
 
         <button
@@ -253,7 +262,7 @@ export const CounterView: React.FC = () => {
           }`}
         >
           <Trash2 className="w-3.5 h-3.5" />
-          <span>Returns Bin ({clinic.binCount})</span>
+          <span>{t('counter.returnsBinTab')} ({binCount})</span>
         </button>
 
         <button
@@ -265,7 +274,7 @@ export const CounterView: React.FC = () => {
           }`}
         >
           <Clock className="w-3.5 h-3.5" />
-          <span>Daily Log</span>
+          <span>{t('counter.dailyLogTab')}</span>
         </button>
 
         <button
@@ -277,7 +286,7 @@ export const CounterView: React.FC = () => {
           }`}
         >
           <HelpCircle className="w-3.5 h-3.5" />
-          <span>Staff Help & Tickets</span>
+          <span>{t('counter.staffHelpTab')}</span>
         </button>
       </div>
 
@@ -290,13 +299,13 @@ export const CounterView: React.FC = () => {
             <div className="mb-6">
               <div className="flex items-center justify-between text-xs font-semibold text-charcoal-700 dark:text-gray-300 mb-2">
                 <span className={step >= 1 ? 'text-brand-600 dark:text-emerald-400 font-bold' : 'text-gray-400'}>
-                  1. Patient ID
+                  {t('counter.step1')}
                 </span>
                 <span className={step >= 2 ? 'text-brand-600 dark:text-emerald-400 font-bold' : 'text-gray-400'}>
-                  2. Verify Empty Pack
+                  {t('counter.step2')}
                 </span>
                 <span className={step >= 3 ? 'text-brand-600 dark:text-emerald-400 font-bold' : 'text-gray-400'}>
-                  3. Dispense & Bill
+                  {t('counter.step3')}
                 </span>
               </div>
               <div className="w-full h-2 bg-gray-100 dark:bg-charcoal-800 rounded-full overflow-hidden">
@@ -313,10 +322,10 @@ export const CounterView: React.FC = () => {
             <div className="space-y-6 animate-fade-in">
               <div className="text-center max-w-sm mx-auto space-y-2">
                 <h2 className="font-serif font-bold text-2xl text-charcoal-900 dark:text-white">
-                  Identify Patient
+                  {t('counter.identifyPatientTitle')}
                 </h2>
                 <p className="text-xs text-charcoal-600 dark:text-gray-400">
-                  Scan the patient's WhatsApp Refill Pass QR or look up their mobile number.
+                  {t('counter.identifyPatientDesc')}
                 </p>
               </div>
 
@@ -330,10 +339,10 @@ export const CounterView: React.FC = () => {
                     onClick={handleSimulateScan}
                     className="px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs shadow-md shadow-brand-600/20 transition-all hover:scale-105"
                   >
-                    Simulate Camera QR Scan
+                    {t('counter.simulateScan')}
                   </button>
                   <p className="text-[11px] text-gray-500 mt-1.5">
-                    1-Tap Instant Recognition (Takes ~2 seconds)
+                    {t('counter.scanTakesTime')}
                   </p>
                 </div>
               </div>
@@ -344,7 +353,7 @@ export const CounterView: React.FC = () => {
                   <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-3" />
                   <input
                     type="text"
-                    placeholder="Or enter patient 10-digit mobile number..."
+                    placeholder={t('counter.searchPhonePlaceholder')}
                     value={searchPhone}
                     onChange={(e) => setSearchPhone(e.target.value)}
                     className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-charcoal-800 rounded-xl text-xs text-charcoal-900 dark:text-white placeholder:text-gray-400 border border-gray-200 dark:border-charcoal-700 focus:outline-none focus:border-brand-500"
@@ -354,7 +363,7 @@ export const CounterView: React.FC = () => {
                 {/* Patient Quick Select Grid */}
                 <div className="border border-gray-200 dark:border-charcoal-800 rounded-2xl p-3 space-y-2 max-h-48 overflow-y-auto">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 px-1">
-                    Registered Clinic Patients
+                    {t('counter.registeredPatients')}
                   </p>
                   {patients
                     .filter(p => !searchPhone || p.phone.includes(searchPhone) || p.name.toLowerCase().includes(searchPhone.toLowerCase()))
@@ -386,7 +395,7 @@ export const CounterView: React.FC = () => {
 
                         <div className="text-right">
                           <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-semibold">
-                            {p.loyaltyTier.toUpperCase()}
+                            {(p.loyaltyTier || 'starter').toUpperCase()}
                           </span>
                         </div>
                       </div>
@@ -410,7 +419,7 @@ export const CounterView: React.FC = () => {
                       </p>
                     ) : (
                       <p className="text-emerald-600 dark:text-emerald-400 text-[11px] font-medium">
-                        ✓ Eligible for 20% Circular Refill Discount (Day 25+ regular cadence)
+                        {t('counter.eligibleDiscount')}
                       </p>
                     )}
                   </div>
@@ -425,7 +434,7 @@ export const CounterView: React.FC = () => {
               <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-charcoal-800">
                 <div>
                   <h2 className="font-serif font-bold text-xl text-charcoal-900 dark:text-white">
-                    Verify Empty Packaging
+                    {t('counter.verifyTitle')}
                   </h2>
                   <p className="text-xs text-charcoal-600 dark:text-gray-400">
                     Patient: <span className="font-bold text-charcoal-900 dark:text-white">{activePatient.name}</span>
@@ -442,7 +451,7 @@ export const CounterView: React.FC = () => {
               {/* Product SKU Selector */}
               <div>
                 <label className="text-xs font-semibold text-charcoal-700 dark:text-gray-300 mb-1.5 block">
-                  Product Returned & Refill Requested:
+                  {t('counter.productReturnedLabel')}
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   {PRODUCT_SKUS.map((sku) => (
@@ -469,7 +478,7 @@ export const CounterView: React.FC = () => {
               {/* Verification Checklist (3-checks) */}
               <div className="p-4 bg-gray-50 dark:bg-charcoal-800 rounded-2xl border border-gray-200 dark:border-charcoal-700 space-y-2.5">
                 <p className="text-xs font-bold uppercase tracking-wider text-charcoal-700 dark:text-gray-300">
-                  Physical Safety Checklist (Under 5 seconds)
+                  {t('counter.checklistTitle')}
                 </p>
 
                 <label className="flex items-center gap-2.5 text-xs text-charcoal-800 dark:text-gray-200 cursor-pointer">
@@ -479,7 +488,7 @@ export const CounterView: React.FC = () => {
                     onChange={(e) => setCheckIntact(e.target.checked)}
                     className="w-4 h-4 text-brand-600 rounded focus:ring-brand-500"
                   />
-                  <span>Outer container is intact, unbroken, and dry</span>
+                  <span>{t('counter.intactCheck')}</span>
                 </label>
 
                 <label className="flex items-center gap-2.5 text-xs text-charcoal-800 dark:text-gray-200 cursor-pointer">
@@ -489,7 +498,7 @@ export const CounterView: React.FC = () => {
                     onChange={(e) => setCheckMatchesRange(e.target.checked)}
                     className="w-4 h-4 text-brand-600 rounded focus:ring-brand-500"
                   />
-                  <span>Matches official Brand range (not competitor unapproved packaging)</span>
+                  <span>{t('counter.matchesCheck')}</span>
                 </label>
 
                 <label className="flex items-center gap-2.5 text-xs text-charcoal-800 dark:text-gray-200 cursor-pointer">
@@ -499,7 +508,7 @@ export const CounterView: React.FC = () => {
                     onChange={(e) => setCheckBatchLegible(e.target.checked)}
                     className="w-4 h-4 text-brand-600 rounded focus:ring-brand-500"
                   />
-                  <span>Lot / Batch code laser etching on container base is readable</span>
+                  <span>{t('counter.batchLegibleCheck')}</span>
                 </label>
               </div>
 
@@ -507,7 +516,7 @@ export const CounterView: React.FC = () => {
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-semibold text-charcoal-700 dark:text-gray-300">
-                    Empty Pack Lot / Batch Code:
+                    {t('counter.batchCodeLabel')}
                   </label>
                   <span className="text-[10px] text-gray-400">Printed on base or crimp seal</span>
                 </div>
@@ -519,14 +528,14 @@ export const CounterView: React.FC = () => {
                       setBatchCodeInput(e.target.value)
                       setBatchError(null)
                     }}
-                    placeholder="e.g. B25-419"
+                    placeholder={t('counter.batchCodePlaceholder')}
                     className="flex-1 px-3 py-2 bg-gray-50 dark:bg-charcoal-800 rounded-xl text-xs font-mono text-charcoal-900 dark:text-white border border-gray-200 dark:border-charcoal-700 focus:outline-none focus:border-brand-500 uppercase"
                   />
                   <button
                     onClick={() => setBatchCodeInput(`B25-${Math.floor(Math.random() * 800 + 100)}`)}
                     className="px-3 py-2 bg-gray-100 dark:bg-charcoal-700 hover:bg-gray-200 rounded-xl text-xs font-medium text-charcoal-700 dark:text-gray-300"
                   >
-                    Auto-Fill
+                    {t('counter.autoFill')}
                   </button>
                 </div>
 
@@ -544,7 +553,7 @@ export const CounterView: React.FC = () => {
                 disabled={!checkIntact || !checkMatchesRange || !checkBatchLegible || !batchCodeInput.trim()}
                 className="w-full py-3 rounded-2xl bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-semibold text-sm transition-all shadow-md flex items-center justify-center gap-2"
               >
-                <span>Proceed to Dispense</span>
+                <span>{t('counter.proceedToDispense')}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
@@ -556,10 +565,10 @@ export const CounterView: React.FC = () => {
               <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-charcoal-800">
                 <div>
                   <h2 className="font-serif font-bold text-xl text-charcoal-900 dark:text-white">
-                    Dispense Sterile Refill Pod
+                    {t('counter.dispenseTitle')}
                   </h2>
                   <p className="text-xs text-charcoal-600 dark:text-gray-400">
-                    Step 3 of 3 • Under 10 seconds to complete
+                    {t('counter.dispenseSubtitle')}
                   </p>
                 </div>
                 <button
@@ -584,21 +593,21 @@ export const CounterView: React.FC = () => {
 
                 <div className="space-y-1.5 text-xs">
                   <div className="flex justify-between text-gray-500">
-                    <span>Full Packaging MRP:</span>
+                    <span>{t('counter.fullPackMrp')}</span>
                     <span className="line-through">{formatINR(activeSku.fullPriceINR)}</span>
                   </div>
                   <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-semibold">
-                    <span>Circular Refill Discount (20%):</span>
+                    <span>{t('counter.circularDiscount')}</span>
                     <span>- {formatINR(activeSku.fullPriceINR - activeSku.refillPriceINR)}</span>
                   </div>
                   <div className="flex justify-between font-bold text-base text-charcoal-900 dark:text-white pt-2 border-t border-gray-200/60 dark:border-charcoal-700">
-                    <span>Amount Due from Patient:</span>
+                    <span>{t('counter.amountDue')}</span>
                     <span className="text-brand-700 dark:text-emerald-400">{formatINR(activeSku.refillPriceINR)}</span>
                   </div>
                   <div className="flex justify-between text-[11px] text-gray-400 pt-1">
-                    <span>Doctor Practice Margin Earned:</span>
+                    <span>{t('counter.doctorMarginEarned')}</span>
                     <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                      {formatINR(Math.round(activeSku.refillPriceINR * activeSku.doctorRefillMarginPct))} (32%)
+                      {formatINR(Math.round(activeSku.refillPriceINR * activeSku.doctorRefillMarginPct))} ({Math.round(activeSku.doctorRefillMarginPct * 100)}%)
                     </span>
                   </div>
                 </div>
@@ -607,7 +616,7 @@ export const CounterView: React.FC = () => {
               {/* Payment Mode Selection */}
               <div>
                 <label className="text-xs font-semibold text-charcoal-700 dark:text-gray-300 mb-1.5 block">
-                  Patient Payment Mode:
+                  {t('counter.paymentModeLabel')}
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {(['upi', 'card', 'cash'] as const).map((mode) => (
@@ -629,7 +638,7 @@ export const CounterView: React.FC = () => {
               {/* Staff PIN Authorization */}
               <div className="flex items-center gap-3">
                 <div className="flex-1">
-                  <label className="text-[11px] font-semibold text-gray-500 mb-1 block">Staff PIN / Initials:</label>
+                  <label className="text-[11px] font-semibold text-gray-500 mb-1 block">{t('counter.staffPinLabel')}</label>
                   <input
                     type="password"
                     maxLength={4}
@@ -649,7 +658,7 @@ export const CounterView: React.FC = () => {
                 className="w-full py-3.5 rounded-2xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-sm transition-all shadow-lg shadow-brand-600/30 flex items-center justify-center gap-2 hover:scale-[1.01]"
               >
                 <Check className="w-5 h-5" />
-                <span>Confirm & Dispense Refill ({formatINR(activeSku.refillPriceINR)})</span>
+                <span>{t('counter.confirmAndDispense')} ({formatINR(activeSku.refillPriceINR)})</span>
               </button>
             </div>
           )}
@@ -674,10 +683,10 @@ export const CounterView: React.FC = () => {
               <div className="p-4 rounded-2xl bg-mint-50 dark:bg-charcoal-800 border border-emerald-200 dark:border-emerald-800 max-w-sm mx-auto text-xs text-charcoal-700 dark:text-gray-200 space-y-1">
                 <div className="flex items-center justify-center gap-1.5 font-bold text-emerald-800 dark:text-emerald-300">
                   <Sparkles className="w-4 h-4 text-emerald-600" />
-                  <span>38g Virgin Plastic Saved Today</span>
+                  <span>{activeSku.plasticWeightGrams}g Virgin Plastic Saved Today</span>
                 </div>
                 <p className="text-[11px] text-gray-500">
-                  Patient saved ₹270 • Doctor earned ₹345.60 margin • Returns bin at {clinic.binCount}/20
+                  Patient saved {formatINR(activeSku.fullPriceINR - activeSku.refillPriceINR)} • Doctor earned {formatINR(Math.round(activeSku.refillPriceINR * activeSku.doctorRefillMarginPct))} margin • Returns bin at {binCount}/{binThreshold}
                 </p>
               </div>
 
@@ -691,7 +700,7 @@ export const CounterView: React.FC = () => {
                 </button>
 
                 <button
-                  onClick={() => alert(`Simulated WhatsApp Receipt sent to ${activePatient.phone}:\n"Thank you for choosing circular care at ${clinic.name}! Your ₹270 discount has been applied. 38g plastic saved."`)}
+                  onClick={() => alert(`Simulated WhatsApp Receipt sent to ${activePatient.phone}:\n"Thank you for choosing circular care at ${clinic.name}! Your ${formatINR(activeSku?.fullPriceINR && activeSku?.refillPriceINR ? activeSku.fullPriceINR - activeSku.refillPriceINR : 270)} discount has been applied. 38g plastic saved."`)}
                   className="px-4 py-2.5 rounded-xl bg-gray-100 dark:bg-charcoal-800 hover:bg-gray-200 text-charcoal-800 dark:text-gray-200 font-semibold text-xs flex items-center gap-1.5"
                 >
                   <Share2 className="w-3.5 h-3.5" />
@@ -774,30 +783,30 @@ export const CounterView: React.FC = () => {
                 Under-Counter Returns Collection Bin
               </h2>
               <p className="text-xs text-charcoal-600 dark:text-gray-400">
-                Automatic courier collection triggered when bin reaches {clinic.binThreshold} empty containers.
+                Automatic courier collection triggered when bin reaches {binThreshold} empty containers.
               </p>
             </div>
           </div>
 
           <div className="p-6 rounded-3xl bg-mint-50 dark:bg-charcoal-800/60 border border-emerald-200 dark:border-emerald-800/50 text-center space-y-4">
             <div className="w-20 h-20 mx-auto rounded-full bg-white dark:bg-charcoal-700 shadow-inner flex flex-col items-center justify-center border-4 border-emerald-500">
-              <span className="font-bold text-2xl text-emerald-800 dark:text-emerald-300">{clinic.binCount}</span>
-              <span className="text-[10px] text-gray-400 uppercase">/ {clinic.binThreshold}</span>
+              <span className="font-bold text-2xl text-emerald-800 dark:text-emerald-300">{binCount}</span>
+              <span className="text-[10px] text-gray-400 uppercase">/ {binThreshold}</span>
             </div>
 
             <div>
               <h3 className="font-bold text-base text-charcoal-900 dark:text-white">
-                {clinic.binCount >= clinic.binThreshold ? 'Bin is Full – Ready for Courier Collection' : 'Returns Accumulating Normally'}
+                {binCount >= binThreshold ? 'Bin is Full – Ready for Courier Collection' : 'Returns Accumulating Normally'}
               </h3>
               <p className="text-xs text-charcoal-600 dark:text-gray-400 mt-1 max-w-sm mx-auto">
-                {clinic.binCount * 42}g of medical-grade packaging plastic ready for closed-loop PCR recycling.
+                {binCount * 42}g of medical-grade packaging plastic ready for closed-loop PCR recycling.
               </p>
             </div>
 
             <button
               onClick={() => {
                 requestPickup(clinic.id)
-                alert(`Pickup scheduled! Courier dispatched to collect ${clinic.binCount} containers from ${clinic.name}.`)
+                alert(`Pickup scheduled! Courier dispatched to collect ${binCount} containers from ${clinic.name}.`)
               }}
               className="px-6 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs flex items-center justify-center gap-2 mx-auto shadow-md"
             >
@@ -844,7 +853,7 @@ export const CounterView: React.FC = () => {
                     </Badge>
                   </div>
                   <p className="text-gray-500 mt-0.5">
-                    Batch: <span className="font-mono">{tx.batchCode}</span> • Mode: {tx.paymentMode.toUpperCase()} • Dr. Margin: {formatINR(tx.doctorMargin)}
+                    Batch: <span className="font-mono">{tx.batchCode}</span> • Mode: {tx.paymentMode.toUpperCase()} • Dr. Margin: {formatINR(tx.doctorMargin || tx.doctorMarginINR || 0)}
                   </p>
                   {tx.voidReason && (
                     <p className="text-[10px] text-rose-600 mt-0.5">Voided: {tx.voidReason}</p>

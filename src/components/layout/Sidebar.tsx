@@ -26,76 +26,77 @@ import { IllustrativeDisclaimer } from '../common/IllustrativeDisclaimer'
 
 export const Sidebar: React.FC = () => {
   const { t } = useTranslation()
-  const { persona, resetDemoData, reseedData, exportStateJson } = useAppStore()
+  const { persona, resetDemoData, reseedData, exportStateJson, clinics, selectedTerritoryId } = useAppStore()
+  const territoryClinics = clinics.filter(c => c.territoryId === selectedTerritoryId)
 
   // Dynamic nav items based on persona
   const navItems = [
     {
       to: '/',
-      label: 'Platform Overview',
+      label: t('nav.overview', { defaultValue: 'Platform Overview' }),
       icon: LayoutDashboard,
       roles: ['rep', 'staff', 'doctor', 'patient', 'manager'] as PersonaRole[],
     },
     {
       to: '/territory',
-      label: 'Territory Dashboard',
+      label: t('nav.territory', { defaultValue: 'Territory Dashboard' }),
       icon: MapPin,
-      badge: 'Main (25)',
+      badge: `Main (${territoryClinics.length})`,
       roles: ['rep', 'manager'] as PersonaRole[],
     },
     {
       to: '/counter',
-      label: 'Clinic Refill Counter',
+      label: t('nav.counter', { defaultValue: 'Clinic Refill Counter' }),
       icon: QrCode,
       badge: '3-Tap',
       roles: ['staff', 'doctor', 'rep'] as PersonaRole[],
     },
     {
       to: '/patient',
-      label: 'Patient Pass & Loyalty',
+      label: t('nav.patient', { defaultValue: 'Patient Pass & Loyalty' }),
       icon: Smartphone,
       roles: ['patient', 'staff', 'doctor', 'rep'] as PersonaRole[],
     },
     {
       to: '/doctor-matrix',
-      label: 'Understand Doctor',
+      label: t('nav.doctorMatrix', { defaultValue: 'Understand Doctor' }),
       icon: Stethoscope,
       badge: 'Archetypes',
       roles: ['rep', 'doctor', 'manager'] as PersonaRole[],
     },
     {
       to: '/pitch-studio',
-      label: 'Pitch & Economics Studio',
+      label: t('nav.pitchStudio', { defaultValue: 'Pitch & Economics Studio' }),
       icon: Calculator,
       roles: ['rep', 'doctor', 'manager'] as PersonaRole[],
     },
     {
       to: '/doctor-dash',
-      label: 'Doctor Practice View',
+      label: t('nav.doctorDashboard', { defaultValue: 'Doctor Practice View' }),
       icon: Award,
       roles: ['doctor', 'rep', 'manager'] as PersonaRole[],
     },
     {
       to: '/academy',
-      label: 'Staff Training Academy',
+      label: t('nav.academy', { defaultValue: 'Staff Training Academy' }),
       icon: GraduationCap,
       roles: ['staff', 'rep', 'doctor'] as PersonaRole[],
     },
     {
       to: '/levers',
-      label: 'Levers & Incentives Engine',
+      label: t('nav.levers', { defaultValue: 'Levers & Incentives Engine' }),
       icon: Sliders,
       roles: ['rep', 'manager'] as PersonaRole[],
     },
     {
       to: '/onboarding',
-      label: 'Clinic Enrolment Wizard',
+      label: t('nav.onboarding', { defaultValue: 'Clinic Enrolment Wizard' }),
       icon: UserPlus,
       roles: ['rep', 'manager'] as PersonaRole[],
     },
     {
       to: '/brand-admin',
-      label: 'Brand Executive View',
+      label: t('nav.brandAdmin', { defaultValue: 'Brand Executive View' }),
       icon: BarChart3,
       badge: 'Roll-up',
       roles: ['manager', 'rep'] as PersonaRole[],

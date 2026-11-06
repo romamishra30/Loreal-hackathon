@@ -34,7 +34,9 @@ export const LeversView: React.FC = () => {
 
   // What-If Projection calculations
   const projectedRefillRate = Math.min(65, Math.round(28 + (simMarginPct - 25) * 1.5 + (simTrainingCoverage / 100) * 15 + (simDiscountPct - 15) * 0.8))
-  const projectedRefillsMo = Math.round(clinic.patientVolumeMonthly * clinic.dispensingSharePct * (projectedRefillRate / 100))
+  const patVolume = clinic.patientVolumeMonthly || 450
+  const dispShare = (clinic.dispensingSharePct || 60) > 1 ? (clinic.dispensingSharePct || 60) / 100 : (clinic.dispensingSharePct || 0.6)
+  const projectedRefillsMo = Math.round(patVolume * dispShare * (projectedRefillRate / 100))
   const projectedMonthlyCost = Math.round(projectedRefillsMo * 15 + (simTrainingCoverage > 75 ? 800 : 400))
   const projectedPlasticSavedKg = ((projectedRefillsMo * 42) / 1000).toFixed(1)
   const costPerPackSaved = (projectedMonthlyCost / Math.max(1, projectedRefillsMo)).toFixed(1)
@@ -69,7 +71,7 @@ export const LeversView: React.FC = () => {
                 : 'text-charcoal-700 dark:text-gray-300'
             }`}
           >
-            Active Levers ({clinic.activeLevers.length})
+            Active Levers ({(clinic.activeLevers || []).length})
           </button>
           <button
             onClick={() => setActiveTab('tiers')}
@@ -117,13 +119,13 @@ export const LeversView: React.FC = () => {
               </p>
             </div>
             <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-100 text-emerald-800">
-              {clinic.activeLevers.length} of {LEVERS.length} Levers Active
+              {(clinic.activeLevers || []).length} of {LEVERS.length} Levers Active
             </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {LEVERS.map((lever) => {
-              const isActive = clinic.activeLevers.includes(lever.id)
+              const isActive = (clinic.activeLevers || []).includes(lever.id)
 
               return (
                 <div
@@ -181,9 +183,9 @@ export const LeversView: React.FC = () => {
               <h3 className="font-bold text-lg text-charcoal-900 dark:text-white">15+ Refills / Month</h3>
               <p className="text-gray-500">≥2 weeks consecutive consistency</p>
               <div className="pt-2 border-t border-gray-200 dark:border-charcoal-700 space-y-1.5">
-                <p>Doctor Reward: <strong>₹20 / refill</strong></p>
-                <p>Staff Reward: <strong>₹5 / refill</strong></p>
-                <p>Quarterly Practice Bonus: <strong>₹500</strong></p>
+                <p>Doctor Reward: <strong>{formatINR(20)} / refill</strong></p>
+                <p>Staff Reward: <strong>{formatINR(5)} / refill</strong></p>
+                <p>Quarterly Practice Bonus: <strong>{formatINR(500)}</strong></p>
               </div>
             </div>
 
@@ -195,14 +197,14 @@ export const LeversView: React.FC = () => {
               <h3 className="font-bold text-lg text-charcoal-900 dark:text-white">30+ Refills / Month</h3>
               <p className="text-gray-500">≥3 weeks consecutive consistency</p>
               <div className="pt-2 border-t border-gray-200 dark:border-charcoal-700 space-y-1.5">
-                <p>Doctor Reward: <strong>₹35 / refill</strong></p>
-                <p>Staff Reward: <strong>₹10 / refill</strong></p>
-                <p>Quarterly Practice Bonus: <strong>₹1,500</strong></p>
+                <p>Doctor Reward: <strong>{formatINR(35)} / refill</strong></p>
+                <p>Staff Reward: <strong>{formatINR(10)} / refill</strong></p>
+                <p>Quarterly Practice Bonus: <strong>{formatINR(1500)}</strong></p>
                 <p className="text-emerald-700 font-semibold">+ Free patient standee replenishment</p>
               </div>
             </div>
 
-            {/* Gold Tier */}
+            {/* Gold Champion Tier */}
             <div className="p-5 rounded-3xl border-2 border-gold-400 bg-gold-50/50 dark:bg-charcoal-800 text-xs space-y-3 shadow-lg">
               <span className="px-2.5 py-0.5 rounded-full bg-gold-400 text-charcoal-950 font-bold uppercase text-[10px]">
                 Gold Champion Tier
@@ -210,9 +212,9 @@ export const LeversView: React.FC = () => {
               <h3 className="font-bold text-lg text-charcoal-900 dark:text-white">60+ Refills / Month</h3>
               <p className="text-gray-500">4 weeks unbroken consistency</p>
               <div className="pt-2 border-t border-gold-200 dark:border-charcoal-700 space-y-1.5">
-                <p>Doctor Reward: <strong>₹50 / refill</strong></p>
-                <p>Staff Reward: <strong>₹15 / refill</strong></p>
-                <p>Quarterly Practice Bonus: <strong>₹3,000</strong></p>
+                <p>Doctor Reward: <strong>{formatINR(50)} / refill</strong></p>
+                <p>Staff Reward: <strong>{formatINR(15)} / refill</strong></p>
+                <p>Quarterly Practice Bonus: <strong>{formatINR(3000)}</strong></p>
                 <p className="text-gold-800 dark:text-gold-300 font-bold">
                   ★ Framed ESG Award & Feature in Regional Medical Bulletin
                 </p>
@@ -320,7 +322,7 @@ export const LeversView: React.FC = () => {
                   </div>
                   <div>
                     <span className="text-gray-500 text-[11px]">Cost / Pack Diverted</span>
-                    <p className="text-xl font-bold text-charcoal-900 dark:text-white">₹{costPerPackSaved}</p>
+                    <p className="text-xl font-bold text-charcoal-900 dark:text-white">{formatINR(Number(costPerPackSaved))}</p>
                   </div>
                 </div>
               </div>
@@ -350,7 +352,7 @@ export const LeversView: React.FC = () => {
               { lever: '3-Tap Counter App vs Paper Billing', withVal: '44.8% Refill Rate', withoutVal: '18.2% Refill Rate', lift: '+146% Lift' },
               { lever: '100% Sale-or-Return Guarantee', withVal: '92% Stock Enrolment', withoutVal: '41% Stock Enrolment', lift: '+124% Lift' },
               { lever: 'Automated WhatsApp Adherence Nudges', withVal: '68% Day-30 Return', withoutVal: '24% Day-30 Return', lift: '+183% Lift' },
-              { lever: 'Staff Certification & ₹10 Micro-Reward', withVal: '22s Checkout Speed', withoutVal: '1m 45s Checkout Speed', lift: '4.7x Faster' },
+              { lever: `Staff Certification & ${formatINR(10)} Micro-Reward`, withVal: '22s Checkout Speed', withoutVal: '1m 45s Checkout Speed', lift: '4.7x Faster' },
             ].map((comp, idx) => (
               <div
                 key={idx}

@@ -22,11 +22,21 @@ import { TERRITORIES } from '../../data/seedConstants'
 import { formatINR, formatNumber } from '../../lib/utils'
 import { StatCard } from '../../components/common/StatCard'
 import { Badge } from '../../components/common/Badge'
+import { useUiStore } from '../../store/useUiStore'
+import { 
+  selectRegionalRollup, 
+  selectPilotScorecardGates, 
+  selectScaleReadiness 
+} from '../../domain/selectors/brandSelectors'
 
 export const BrandAdminView: React.FC = () => {
   const { 
     clinics, 
     transactions, 
+    skus,
+    stockItems,
+    returnPacks,
+    feedback,
     replenishmentOrders, 
     pickupTasks, 
     updateOrderStatus, 
@@ -40,10 +50,9 @@ export const BrandAdminView: React.FC = () => {
   const [targetClinicsCount, setTargetClinicsCount] = useState(1500)
   const [projectedRefillRateTarget, setProjectedRefillRateTarget] = useState(42)
 
-  const completedTxs = transactions.filter(t => t.status === 'completed')
-  const totalRefillsAcrossRegions = completedTxs.length
-  const totalKgPlasticAcrossRegions = ((totalRefillsAcrossRegions * 42) / 1000).toFixed(1)
-  const totalClinics = clinics.length
+  const rollup = selectRegionalRollup(TERRITORIES as any, clinics, transactions, skus)
+  const gates = selectPilotScorecardGates(clinics, transactions, feedback || [], stockItems || [], returnPacks || [], pickupTasks || [])
+  const scaleReadiness = selectScaleReadiness(clinics, transactions)
 
   // Simulated Scale-up calculation
   const nationalAnnualRefills = Math.round(targetClinicsCount * 350 * 0.50 * 0.40 * (projectedRefillRateTarget / 100) * 12)
@@ -118,26 +127,34 @@ export const BrandAdminView: React.FC = () => {
       {/* Aggregate KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <StatCard
+          kpiId="brand_clinics"
           title="Total Participating Clinics"
-          value="100 Clinics"
+          value={`${rollup.totalClinics} Clinics`}
           subtext="Across 4 Regional Territories"
+          onInfoClick={() => useUiStore.getState().openPopover('why_this_number')}
         />
         <StatCard
+          kpiId="brand_refills"
           title="Total Refills Processed"
-          value={totalRefillsAcrossRegions.toLocaleString('en-IN')}
+          value={rollup.totalRefills.toLocaleString('en-IN')}
           subtext="12-Week Pilot Cumulative"
           highlight={true}
+          onInfoClick={() => useUiStore.getState().openPopover('why_this_number')}
         />
         <StatCard
+          kpiId="plastic_saved"
           title="Virgin Plastic Diverted"
-          value={`${totalKgPlasticAcrossRegions} kg`}
+          value={`${rollup.totalKgPlastic} kg`}
           subtext="PCR closed-loop audit ready"
+          onInfoClick={() => useUiStore.getState().openPopover('why_this_number')}
         />
         <StatCard
+          kpiId="scale_readiness"
           title="Scale Readiness Index"
-          value="88 / 100"
+          value={`${scaleReadiness} / 100`}
           subtext="Green Light for Phase 2"
           trend={{ value: 'Ready', isPositive: true }}
+          onInfoClick={() => useUiStore.getState().openPopover('why_this_number')}
         />
       </div>
 
@@ -158,7 +175,7 @@ export const BrandAdminView: React.FC = () => {
               {TERRITORIES.map((terr, idx) => {
                 const terrClinics = clinics.filter(c => c.territoryId === terr.id)
                 const avgScore = Math.round(
-                  terrClinics.reduce((sum, c) => sum + c.healthScore, 0) / (terrClinics.length || 1)
+                  terrClinics.reduce((sum, c) => sum + (c.healthScore || 80), 0) / (terrClinics.length || 1)
                 )
                 const isLeader = terr.id === 'terr-mumbai-thane'
 
@@ -197,7 +214,7 @@ export const BrandAdminView: React.FC = () => {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-500">Clinics Enrolled:</span>
-                        <span className="font-semibold">25 Clinics</span>
+                        <span className="font-semibold">{terrClinics.length} Clinics</span>
                       </div>
                     </div>
                   </div>
@@ -216,18 +233,12 @@ export const BrandAdminView: React.FC = () => {
               Pilot Scorecard & Go / No-Go Decision Gate
             </h2>
             <p className="text-gray-500">
-              Evaluated against pre-agreed criteria for progressing from Pilot (100 clinics) to National Scale (1,500 clinics).
+              Evaluated against pre-agreed criteria for progressing from Pilot ({rollup.totalClinics} clinics) to National Scale (1,500 clinics).
             </p>
           </div>
 
           <div className="space-y-3">
-            {[
-              { criteria: 'Refill Adoption Rate ≥ 40%', current: '42.4% Achieved', status: 'Passed', pass: true },
-              { criteria: 'Clinic Checkout Duration < 30 seconds', current: '22 seconds verified', status: 'Passed', pass: true },
-              { criteria: 'Zero Stock-Out Rate (< 5% incidents)', current: '3.1% Incidents', status: 'Passed', pass: true },
-              { criteria: 'Doctor NPS Satisfaction Score ≥ +50', current: '+74 NPS', status: 'Passed', pass: true },
-              { criteria: 'Reverse Logistics Collection Reliability ≥ 90%', current: '94.2% Pickups on Schedule', status: 'Passed', pass: true },
-            ].map((gate, i) => (
+            {gates.map((gate, i) => (
               <div
                 key={i}
                 className="p-4 rounded-2xl border border-gray-100 dark:border-charcoal-800 flex items-center justify-between bg-gray-50/50 dark:bg-charcoal-850"
@@ -236,7 +247,9 @@ export const BrandAdminView: React.FC = () => {
                   <p className="font-bold text-sm text-charcoal-900 dark:text-white">{gate.criteria}</p>
                   <p className="text-gray-500 text-[11px] mt-0.5">Current Pilot Measurement: {gate.current}</p>
                 </div>
-                <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center gap-1">
+                <span className={`px-3 py-1 rounded-full font-bold text-xs flex items-center gap-1 ${
+                  gate.pass ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                }`}>
                   <CheckCircle2 className="w-3.5 h-3.5" /> {gate.status}
                 </span>
               </div>

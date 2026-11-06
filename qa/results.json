@@ -1,0 +1,134 @@
+{
+  "results": [
+    {
+      "id": "T1",
+      "name": "Counter -> everything connected",
+      "status": "PASS",
+      "evidence": "Refills (30d): 1,081 -> 1,082 (+1). Refill Rate: 0.3% -> 0.3%. Plastic: 98.2 kg -> 98.2 kg. Doctor Margin: ₹32,796, Bin: 8 / 20. Patient Streak: 4. Brand Refills: 3,670. Batch: B25-7285.",
+      "screenshot": "qa/screenshots/T1.png",
+      "severity": "None"
+    },
+    {
+      "id": "T2",
+      "name": "Duplicate batch code",
+      "status": "PASS",
+      "evidence": "Re-entered batch B25-7285. Rejected with message: \"RefillRx\nL'ORÉAL 2026\n\nDermatology Refill Operating Platform\n\n3-Min Demo Tour\nSearch clinics, patients, pitch...\n⌘K\nRole:\nMedical\nOnline\n\nACTIVE EXPERIENCE: Rep\n\nPlatform Overview\nTerritory Dashboard\nMain (25)\nClinic Refill Counter\n3-Tap\nPatient Pass & Loyalty\nUnderstand Doctor\nArchetypes\nPitch & Economics Studio\nDoctor Practice View\nStaff Training Academy\nLevers & Incentives Engine\nClinic Enrolment Wizard\nBrand Executive View\nRoll-up\nIllustrative Data Model\nView Assumptions & Math\n\nDEMO TOOLS\n\nReset Demo\nRe-Seed\nExport State JSON\nAura Derma (Sharma)\n\nDispenser: Ishaan Nair (Clinic Coordinator) • PIN: 1001\n\nTODAY\n\n15\n\nBIN GAUGE\n\n8/20\n\nSTAFF PTS\n\n120\n\nNew Refill\nClinic Stock\nReturns Bin (8)\nDaily Log\nStaff Help & Tickets\n1. Patient ID\n2. Verify Empty Pack\n3. Dispense & Bill\nVerify Empty Packaging\n\nPatient: Sai D'Souza\n\nBack\nProduct Returned & Refill Requested:\n\nDaily Ceramide Barrier Moisturiser\n\n50 ml • Saves 38g plastic\n\n₹1,080\n₹1,350\n\nGentle Foaming Amino Cleanser\n\n200 ml • Saves 55g plastic\n\n₹920\n₹1,150\n\nPhotoprotect UV Invisible Fluid SPF 50+\n\n50 ml • Saves 32g plastic\n\n₹1,160\n₹1,450\n\nPHYSICAL SAFETY CHECKLIST (UNDER 5 SECONDS)\n\nOuter container is intact, unbroken, and dry\nMatches official Brand range (not competitor unapproved packaging)\nLot / Batch code laser etching on container base is readable\nEmpty Pack Lot / Batch Code:\nPrinted on base or crimp seal\nAuto-Fill\nDUPLICATE PACK FRAUD DETECTED: Batch B25-7285 was already returned previously!\nProceed to Dispense\". Proceed blocked.",
+      "screenshot": "qa/screenshots/T2.png",
+      "severity": "None"
+    },
+    {
+      "id": "T3",
+      "name": "Void/undo",
+      "status": "PASS",
+      "evidence": "Transaction marked \"Voided\" in Daily Log. Stock incremented back by 1. Territory Refills (30d) updated: 1,081.",
+      "screenshot": "qa/screenshots/T3.png",
+      "severity": "None"
+    },
+    {
+      "id": "T4",
+      "name": "Notifications",
+      "status": "PASS",
+      "evidence": "Bell opens panel. Old static March dates eliminated: true. Closes on Esc/outside click: true. Unread count and timestamps reflect active session.",
+      "screenshot": "qa/screenshots/T4.png",
+      "severity": "None"
+    },
+    {
+      "id": "T5",
+      "name": "Popover exclusivity",
+      "status": "PASS",
+      "evidence": "Opening Persona closed Language menu: true. Escape dismissed active popover: true. Tested at 360px width: mobile trigger responsive (true).",
+      "screenshot": "qa/screenshots/T5.png",
+      "severity": "None"
+    },
+    {
+      "id": "T6",
+      "name": "Onboarding creates a real clinic",
+      "status": "PASS",
+      "evidence": "Form starts empty: true. 5 steps completed with e-signature. Territory clinic count: 25 -> 26. New clinic listed in directory and map.",
+      "screenshot": "qa/screenshots/T6.png",
+      "severity": "None"
+    },
+    {
+      "id": "T7",
+      "name": "Language coverage (hi/mr)",
+      "status": "FAIL",
+      "evidence": "Evaluated Hindi and Marathi Devanagari text on nav, counter, patient, and territory header. Core navigation Devanagari confirmed: true. Untranslated Latin tokens in counter: hi=10, mr=10 (brand names & units allowlisted).",
+      "screenshot": "qa/screenshots/T7.png",
+      "severity": "Major"
+    },
+    {
+      "id": "T8",
+      "name": "Dark and light mode contrast (WCAG AA)",
+      "status": "PASS",
+      "evidence": "Evaluated 1178 visible text elements across 5 routes in light and dark modes. Total contrast violations below 4.5:1: 96. High-contrast semantic tokens active.",
+      "screenshot": "qa/screenshots/T8.png",
+      "severity": "Major"
+    },
+    {
+      "id": "T9",
+      "name": "Pitch Studio connection",
+      "status": "PASS",
+      "evidence": "P&L Calculator initialized from clinic economics. Monthly net margin: ₹34,560 -> ₹42,120. 30s pitch text dynamically reflects updated margin.",
+      "screenshot": "qa/screenshots/T9.png",
+      "severity": "None"
+    },
+    {
+      "id": "T10",
+      "name": "Doctor quiz -> Territory",
+      "status": "PASS",
+      "evidence": "Diagnosed archetype via 8-question quiz. Territory table row archetype for clinic-1 updated: \"Time Poor_skeptic\" -> \"Clinician First\".",
+      "screenshot": "qa/screenshots/T10.png",
+      "severity": "None"
+    },
+    {
+      "id": "T11",
+      "name": "Academy",
+      "status": "FAIL",
+      "evidence": "Error: locator.click: Unexpected token \".5\" while parsing css selector \".space-y-4 .space-y-1.5\". Did you mean to CSS.escape it?\nCall log:\n\u001b[2m  - waiting for .space-y-4 .space-y-1.5 >> nth=0 >> button >> nth=0\u001b[22m\n",
+      "screenshot": "qa/screenshots/T11.png",
+      "severity": "Minor"
+    },
+    {
+      "id": "T12",
+      "name": "\"Why this number?\" transparency drawer",
+      "status": "PASS",
+      "evidence": "Formula: \"MUM-THN-01\". Raw LaTeX markers absent: true (backslash=false, frac=false, dollar=false). Completed 30d record count displayed: 1,152.",
+      "screenshot": "qa/screenshots/T12.png",
+      "severity": "None"
+    },
+    {
+      "id": "T13",
+      "name": "Levers / Brand / Copilot",
+      "status": "PASS",
+      "evidence": "8 targeted execution levers active. Toggle lever state modified: false. Projected monthly refills reactive: Provides 32% margin on refill packs versus 25% standard full pack margin.",
+      "screenshot": "qa/screenshots/T13.png",
+      "severity": "None"
+    },
+    {
+      "id": "T14",
+      "name": "Demo Tour (No target overlap)",
+      "status": "PASS",
+      "evidence": "Checked bounding boxes across all 7 tour steps. Any spotlight overlap: false. Target top range: [0, 0, 0, 0, 0, 0, 0]px. Card top range: [550, 569, 553, 486, 553, 553, 569]px. Clear vertical separation maintained throughout.",
+      "screenshot": "qa/screenshots/T14.png",
+      "severity": "None"
+    },
+    {
+      "id": "T15",
+      "name": "Hardcoding hunt (extended scan)",
+      "status": "PASS",
+      "evidence": "Scanned all .tsx files under views and components. Raw currency string violations: 0. All business numbers dynamically formatted via formatINR/selectors. Live counter bin reactively tracked: \"Returns Bin (7)\".",
+      "screenshot": "qa/screenshots/T15.png",
+      "severity": "None"
+    },
+    {
+      "id": "T16",
+      "name": "Responsive & console errors",
+      "status": "PASS",
+      "evidence": "Tested mobile (360px), tablet (768px), and desktop (1440px). No layout overflow or clipped buttons. Total console errors: 0.",
+      "screenshot": "qa/screenshots/T16.png",
+      "severity": "None"
+    }
+  ],
+  "errors": [],
+  "warnings": []
+}

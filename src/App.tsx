@@ -6,6 +6,7 @@ import { CopilotDrawer } from './components/copilot/CopilotDrawer'
 import { CommandPalette } from './components/palette/CommandPalette'
 import { ShareModal } from './components/common/ShareModal'
 import { GuidedDemoTour } from './components/tour/GuidedDemoTour'
+import { WhyThisNumberDrawer } from './components/common/WhyThisNumberDrawer'
 
 // Views
 import { LandingView } from './views/landing/LandingView'
@@ -65,6 +66,7 @@ export function App() {
       <CommandPalette isOpen={showPalette} onClose={() => setShowPalette(false)} />
       <ShareModal isOpen={showShare} onClose={() => setShowShare(false)} />
       <GuidedDemoTour />
+      <WhyThisNumberDrawer />
     </div>
   )
 }
